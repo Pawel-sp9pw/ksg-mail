@@ -1,0 +1,70 @@
+name: Build, test and release Windows
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.425'
+      - name: Restore
+        run: dotnet restore KsgMail.sln
+      - name: Tests
+        run: dotnet test KsgMail.sln -c Release --no-restore --logger trx --results-directory artifacts/tests
+      - name: Select version
+        shell: pwsh
+        run: |
+          $version = "0.1.0"
+          if ($env:GITHUB_REF_TYPE -eq "tag") { $version = $env:GITHUB_REF_NAME.TrimStart("v") }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must use v0.1.0 format." }
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Publish self-contained application
+        run: dotnet publish src/KsgMail.App/KsgMail.App.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish -p:Version=${{ env.APP_VERSION }} -p:PublishSingleFile=false
+      - name: Install Inno Setup if missing
+        shell: pwsh
+        run: |
+          if (!(Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+          }
+      - name: Build installer and portable package
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:APP_VERSION" "installer/ksg-mail.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed." }
+          Compress-Archive -Path artifacts/publish/* -DestinationPath "artifacts/KsgMail-$env:APP_VERSION-win-x64.zip"
+          Get-ChildItem artifacts/installer/*.exe, artifacts/*.zip | ForEach-Object {
+            $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+            "$($hash.Hash.ToLowerInvariant())  $($_.Name)"
+          } | Set-Content -Encoding ascii artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KsgMail-win-x64
+          path: |
+            artifacts/installer/*.exe
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/tests/*.trx
+      - name: Create release with binaries
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" artifacts/installer/*.exe artifacts/*.zip artifacts/SHA256SUMS.txt --title "KSG Mail $env:APP_VERSION" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "Release creation failed." }
