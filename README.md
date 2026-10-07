@@ -125,7 +125,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Tag `v0.1.0` (format `vX.Y.Z`) dodatkowo tworzy GitHub Release z instalatorem i ZIP-em.
+Pierwszy poprawny build main tworzy Release `v0.1.0` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.2.0`).
 
 ## Struktura
 
