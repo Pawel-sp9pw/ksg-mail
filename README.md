@@ -5,10 +5,10 @@ MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, ZIP AES-256 (SharpZipLib), Windows D
 
 ## Instalacja
 
-Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.2.0-win-x64.exe`
+Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.2.1-win-x64.exe`
 z [Releases](https://github.com/Pawel-sp9pw/ksg-mail/releases), uruchom instalator i otwórz KSG Mail.
 Instalacja dla bieżącego użytkownika, bez administratora. Własny runtime .NET jest dołączony.
-Wariant przenośny: rozpakuj `KsgMail-0.2.0-win-x64.zip`, uruchom `KsgMail.exe`.
+Wariant przenośny: rozpakuj `KsgMail-0.2.1-win-x64.zip`, uruchom `KsgMail.exe`.
 Nie przenoś katalogu programu po włączeniu harmonogramu; po przeniesieniu zapisz konfigurację ponownie.
 Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-win-x64.
 
@@ -37,7 +37,7 @@ Przycisk **Wyślij przygotowane wiadomości** wymaga potwierdzenia liczby odbior
 
 Błędni klienci nie blokują poprawnych: brak katalogu, pusty katalog, brak dostępu, zmienione pliki,
 za duży ZIP lub źródła są zgłaszane osobno. Klienci nieaktywni nie są wysyłani.
-ZIP obejmuje podkatalogi i zachowuje względne ścieżki. Limit: 10 000 plików.
+ZIP obejmuje podkatalogi i zachowuje względne ścieżki. Limit: 10 000 plików. Po potwierdzonym sukcesie SMTP dokładnie wysłane pliki są przenoszone do `archiwum\RRRR-MM-DD\` w katalogu klienta; struktura podkatalogów jest zachowana. Katalog `archiwum` jest zawsze pomijany przy kolejnych wysyłkach.
 Dowiązania/junctions i pliki z atrybutem reparse point są odrzucane — używaj lokalnych katalogów.
 Katalog dokumentów nie powinien obejmować katalogu danych aplikacji.
 
@@ -53,7 +53,7 @@ osobnego potwierdzenia każdego miesiąca.
 
 Program rejestruje zadanie Windows `KSG-Mail-<SID użytkownika>`, wywołujące `KsgMail.exe --scheduled`
 codziennie oraz przy logowaniu. Sama aplikacja sprawdza termin miesięczny i historię.
-Udana wysyłka do klienta w danym okresie nie jest ponawiana. Gdy aplikacja jest otwarta,
+Udana wysyłka do klienta w danym okresie nie jest ponawiana. Po sukcesie pliki źródłowe są odkładane do dziennego archiwum, dzięki czemu nie wracają do kolejnych paczek. Gdy aplikacja jest otwarta,
 jej timer sprawdza termin co minutę (po nieudanej próbie ponownie najwcześniej po godzinie).
 Wysyłka automatyczna czeka na zakończenie operacji ręcznej / zamknięcie przygotowanego podglądu.
 
@@ -94,8 +94,8 @@ Log nie zapisuje haseł, treści dokumentów ani surowych odpowiedzi SMTP.
 Certyfikaty TLS są standardowo weryfikowane; nie ma opcji wyłączenia kontroli certyfikatu.
 Nie jest obsługiwane nieszyfrowane SMTP.
 
-ZIP-y powstają bez tworzenia niezaszyfrowanych kopii plików źródłowych. Po zakończeniu /
-wyczyszczeniu podglądu są usuwane. Po awarii pozostałości są usuwane przy następnym starcie.
+ZIP-y robocze powstają bez tworzenia niezaszyfrowanych kopii plików źródłowych. Po zakończeniu /
+wyczyszczeniu podglądu są usuwane. Oryginalne dokumenty po udanym SMTP są przenoszone do `archiwum\RRRR-MM-DD\`; przy błędzie lub statusie Niepewny pozostają w katalogu źródłowym. Po awarii pozostałości są usuwane przy następnym starcie.
 Zaszyfrowany ZIP nadal wymaga ochrony katalogu i dobrego hasła.
 Wykonuj kopię całego katalogu danych po zamknięciu aplikacji. Przy migracji na inne konto / komputer
 zapisz hasła ponownie; przeniesienie samej bazy nie zapewnia przenośności DPAPI.
@@ -110,7 +110,7 @@ Wymagania deweloperskie: Windows x64, .NET SDK 8.0.425 (lub nowszy patch 8.0.4xx
 dotnet restore KsgMail.sln
 dotnet test KsgMail.sln -c Release
 dotnet run --project src/KsgMail.App
-.\build.ps1 -Version 0.2.0
+.\build.ps1 -Version 0.2.1
 ```
 
 Wyniki: `artifacts/publish`, `artifacts/installer`, przenośny ZIP i `SHA256SUMS.txt`.
@@ -125,8 +125,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Pierwszy poprawny build main tworzy Release `v0.2.0` z instalatorem i ZIP-em; istniejącej
-wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.2.0`).
+Pierwszy poprawny build main tworzy Release `v0.2.1` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.2.1`).
 
 ## Struktura
 
