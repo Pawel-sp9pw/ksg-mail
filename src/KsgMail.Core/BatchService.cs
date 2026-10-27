@@ -82,7 +82,28 @@ public sealed class BatchService(Repository repository, ArchiveService archives,
                     outcome = new(DeliveryStatus.Uncertain, "Nie udało się ustalić wyniku wysyłki. Sprawdź u odbiorcy przed ponowieniem.");
                 }
                 repository.Finish(mail.Customer, mail.Period, outcome.Status, outcome.Detail, messageId);
-                progress?.Report($"{mail.Name}: {outcome.Detail}");
+
+                if (outcome.Status == DeliveryStatus.Success)
+                {
+                    try
+                    {
+                        var moved = archives.ArchiveSent(
+                            mail.Customer.SourceDirectory,
+                            mail.Files,
+                            DateOnly.FromDateTime(DateTime.Now));
+                        progress?.Report($"{mail.Name}: {outcome.Detail} Zarchiwizowano {moved.Count} plików.");
+                    }
+                    catch (Exception archiveException)
+                    {
+                        var warning = $"Wysłano poprawnie, ale nie udało się zarchiwizować plików: {ErrorMessages.Describe(archiveException)}";
+                        repository.Log(mail.Customer, mail.Period, DeliveryStatus.Success, warning, messageId);
+                        progress?.Report($"{mail.Name}: {warning}");
+                    }
+                }
+                else
+                {
+                    progress?.Report($"{mail.Name}: {outcome.Detail}");
+                }
             }
         }
         finally { gate.Release(); }
