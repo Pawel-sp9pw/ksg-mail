@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly SmtpSender sender;
     private readonly BatchService batches;
     private readonly WindowsScheduler scheduler = new();
+    private readonly GitHubUpdateService updater = new();
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMinutes(1) };
     private Customer editing = new();
     private AppSettings settings = new();
@@ -25,6 +26,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? operation;
     private bool busy;
     private DateTime nextScheduleCheck = DateTime.MinValue;
+    private UpdateInfo? availableUpdate;
+    private bool initialUpdateCheckDone;
 
     public MainWindow(Repository repository, ISecretProtector secrets, SmtpSender sender, BatchService batches)
     {
@@ -38,6 +41,8 @@ public partial class MainWindow : Window
         LoadCustomers();
         ShowCustomer(new Customer());
         LoadLogs();
+        CurrentVersionText.Text = GitHubUpdateService.CurrentVersion.ToString(3);
+        LatestVersionText.Text = "—";
         timer.Tick += ScheduleTick;
         timer.Start();
     }
@@ -239,6 +244,86 @@ public partial class MainWindow : Window
             DeliveryStatus.Uncertain => "Niepewny", DeliveryStatus.Pending => "W toku", _ => "Pominięty"
         }
     }).ToList();
+
+    private async void WindowContentRendered(object? senderObject, EventArgs args)
+    {
+        if (initialUpdateCheckDone) return;
+        initialUpdateCheckDone = true;
+        try
+        {
+            await CheckForUpdatesAsync(false, CancellationToken.None);
+        }
+        catch
+        {
+            UpdateStatusText.Text = "Nie udało się automatycznie sprawdzić aktualizacji. Możesz użyć przycisku Sprawdź aktualizacje.";
+        }
+    }
+
+    private async void CheckUpdates(object senderObject, RoutedEventArgs args) =>
+        await RunAsync(async cancellationToken => await CheckForUpdatesAsync(true, cancellationToken));
+
+    private async Task CheckForUpdatesAsync(bool showMessages, CancellationToken cancellationToken)
+    {
+        UpdateStatusText.Text = "Sprawdzanie najnowszej wersji na GitHub…";
+        var info = await updater.CheckAsync(cancellationToken);
+        LatestVersionText.Text = info.LatestVersion.ToString(3);
+        availableUpdate = info.IsUpdateAvailable ? info : null;
+        InstallUpdateButton.IsEnabled = info.IsUpdateAvailable;
+
+        if (info.IsUpdateAvailable)
+        {
+            UpdateStatusText.Text = $"Dostępna jest nowa wersja KSG Mail {info.LatestVersion.ToString(3)}.";
+            if (showMessages)
+                MessageBox.Show(this, $"Dostępna jest nowa wersja KSG Mail {info.LatestVersion.ToString(3)}.",
+                    "Aktualizacja KSG Mail", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        else
+        {
+            UpdateStatusText.Text = "Masz najnowszą dostępną wersję KSG Mail.";
+            if (showMessages)
+                MessageBox.Show(this, "Masz najnowszą dostępną wersję KSG Mail.",
+                    "Aktualizacja KSG Mail", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private async void InstallUpdate(object senderObject, RoutedEventArgs args)
+    {
+        var update = availableUpdate;
+        if (update == null)
+        {
+            await RunAsync(async cancellationToken => await CheckForUpdatesAsync(true, cancellationToken));
+            update = availableUpdate;
+            if (update == null) return;
+        }
+
+        if (MessageBox.Show(this,
+                $"Pobrać i zainstalować KSG Mail {update.LatestVersion.ToString(3)}?\n\nPo weryfikacji instalatora aplikacja zostanie zamknięta.",
+                "Aktualizacja KSG Mail", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        string? installerPath = null;
+        await RunAsync(async cancellationToken =>
+        {
+            installerPath = await updater.DownloadVerifiedInstallerAsync(update,
+                new Progress<string>(text =>
+                {
+                    StatusText.Text = text;
+                    UpdateStatusText.Text = text;
+                }), cancellationToken);
+            UpdateStatusText.Text = "Instalator zweryfikowany. Uruchamianie aktualizacji…";
+        });
+
+        if (installerPath == null) return;
+        try
+        {
+            GitHubUpdateService.StartInstaller(installerPath);
+            Application.Current.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
 
     private void RefreshLogs(object senderObject, RoutedEventArgs args) => Guard(LoadLogs);
     private void CancelOperation(object senderObject, RoutedEventArgs args) => operation?.Cancel();
