@@ -55,6 +55,38 @@ public sealed class SmtpTests
     }
 
     [Fact]
+    public async Task SendsSingleMessageToAllConfiguredCustomerRecipients()
+    {
+        using var workspace = new TestWorkspace();
+        File.WriteAllText(Path.Combine(workspace.Source, "dokument.txt"), "tajny dokument");
+        await using var server = new LocalSmtpServer(ServerBehavior.Accept);
+        var settings = workspace.Settings with
+        {
+            Host = "localhost",
+            Port = server.Port,
+            Security = TransportSecurity.SslOnConnect
+        };
+        var customer = workspace.Customer with
+        {
+            Email = "first@example.test; second@example.test, first@example.test"
+        };
+        var sender = new SmtpSender(workspace.Secrets, () => new SmtpClient
+        {
+            ServerCertificateValidationCallback = (_, certificate, _, _) =>
+                certificate?.GetCertHashString() == server.Certificate.GetCertHashString()
+        });
+        var service = new BatchService(workspace.Repository, new ArchiveService(workspace.Secrets), sender, workspace.Temp);
+        using var batch = await service.PrepareAsync([customer], settings, "2026-10", false, null, CancellationToken.None);
+
+        var outcome = await sender.SendAsync(settings, batch.Items.Single(), "multi@example.test", CancellationToken.None);
+
+        Assert.Equal(DeliveryStatus.Success, outcome.Status);
+        using var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(server.Message!)));
+        Assert.Equal(new[] { "first@example.test", "second@example.test" },
+            message.To.Mailboxes.Select(mailbox => mailbox.Address).ToArray());
+    }
+
+    [Fact]
     public async Task UntrustedCertificateFailsWithoutSending()
     {
         using var workspace = new TestWorkspace();
