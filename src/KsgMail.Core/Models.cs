@@ -53,7 +53,7 @@ public static class Validation
     {
         Require(Guid.TryParseExact(customer.Id, "N", out _), "Niepoprawny identyfikator klienta.");
         Require(!string.IsNullOrWhiteSpace(customer.Name), "Podaj nazwę klienta.");
-        Email(customer.Email, "Adres klienta");
+        Emails(customer.Email, "Adres klienta");
         Require(!string.IsNullOrWhiteSpace(customer.Subject), "Podaj temat wiadomości.");
         Require(!customer.Subject.Contains('\r') && !customer.Subject.Contains('\n'), "Temat nie może zawierać nowych linii.");
         Require(!string.IsNullOrWhiteSpace(customer.Body), "Podaj treść wiadomości.");
@@ -80,9 +80,31 @@ public static class Validation
 
     public static void Email(string value, string label)
     {
-        Require(!value.Contains('\r') && !value.Contains('\n') &&
-            MailboxAddress.TryParse(value, out var parsed) && parsed.Address == value &&
-            value.Contains('@'), $"{label}: podaj jeden poprawny adres e-mail.");
+        Require(ParseEmails(value).Count == 1, $"{label}: podaj jeden poprawny adres e-mail.");
+    }
+
+    public static void Emails(string value, string label)
+    {
+        var addresses = ParseEmails(value);
+        Require(addresses.Count > 0, $"{label}: podaj co najmniej jeden poprawny adres e-mail.");
+    }
+
+    public static IReadOnlyList<string> ParseEmails(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Contains('\r') || value.Contains('\n'))
+            return [];
+
+        var addresses = new List<string>();
+        foreach (var item in value.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!MailboxAddress.TryParse(item, out var parsed) ||
+                !parsed.Address.Equals(item, StringComparison.OrdinalIgnoreCase) ||
+                !item.Contains('@'))
+                return [];
+            if (!addresses.Contains(parsed.Address, StringComparer.OrdinalIgnoreCase))
+                addresses.Add(parsed.Address);
+        }
+        return addresses;
     }
 
     private static void Require(bool condition, string message)
