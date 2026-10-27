@@ -100,13 +100,27 @@ public sealed class CoreTests
         Assert.True(repository.Reserve(customer, "2026-10", "retry", false));
     }
 
+    [Fact]
+    public void MultipleCustomerRecipientsSeparatedByCommaOrSemicolonAreAccepted()
+    {
+        Validation.Emails("alice@example.test; bob@example.test,alice@example.test", "Klient");
+        Assert.Equal(new[] { "alice@example.test", "bob@example.test" },
+            Validation.ParseEmails("alice@example.test; bob@example.test,alice@example.test"));
+    }
+
     [Theory]
-    [InlineData("alice@example.test,bob@example.test")]
     [InlineData("Alice <alice@example.test>")]
     [InlineData("alice@example.test\r\nBcc: evil@example.test")]
     [InlineData("not-an-address")]
-    public void InvalidOrMultipleRecipientsAreRejected(string value) =>
-        Assert.Throws<UserException>(() => Validation.Email(value, "Klient"));
+    [InlineData("alice@example.test; bad-address")]
+    public void InvalidRecipientListsAreRejected(string value) =>
+        Assert.Throws<UserException>(() => Validation.Emails(value, "Klient"));
+
+    [Fact]
+    public void SenderAddressStillRequiresExactlyOneEmail()
+    {
+        Assert.Throws<UserException>(() => Validation.Email("alice@example.test,bob@example.test", "Nadawca"));
+    }
 
     [Fact]
     public void MonthlyScheduleHonorsDayTimeAndDisabledFlag()
