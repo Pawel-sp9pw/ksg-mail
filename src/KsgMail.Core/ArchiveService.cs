@@ -25,6 +25,7 @@ public sealed class PreparedBatch(AppSettings settings, string directory) : IDis
 
 public sealed class ArchiveService(ISecretProtector secrets)
 {
+    public const string SentArchiveDirectoryName = "archiwum";
     public IReadOnlyList<SourceFile> Discover(string directory, long maxSourceBytes)
     {
         if (!Directory.Exists(directory)) throw new UserException("Katalog źródłowy nie istnieje lub jest niedostępny.");
@@ -36,7 +37,13 @@ public sealed class ArchiveService(ISecretProtector secrets)
         while (pending.TryPop(out var current))
         {
             RejectLink(current);
-            foreach (var subdirectory in Directory.EnumerateDirectories(current)) pending.Push(subdirectory);
+            foreach (var subdirectory in Directory.EnumerateDirectories(current))
+            {
+                if (Path.GetFullPath(current).Equals(root, StringComparison.OrdinalIgnoreCase) &&
+                    Path.GetFileName(subdirectory).Equals(SentArchiveDirectoryName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                pending.Push(subdirectory);
+            }
             foreach (var path in Directory.EnumerateFiles(current))
             {
                 RejectLink(path);
@@ -55,6 +62,60 @@ public sealed class ArchiveService(ISecretProtector secrets)
     {
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new UserException("Katalog zawiera dowiązanie lub plik chmurowy. Użyj zwykłego lokalnego katalogu.");
+    }
+
+    public IReadOnlyList<string> ArchiveSent(string sourceDirectory, IReadOnlyList<SourceFile> files, DateOnly sentDate)
+    {
+        var sourceRoot = Path.GetFullPath(sourceDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        var archiveRoot = Path.Combine(sourceRoot, SentArchiveDirectoryName, sentDate.ToString("yyyy-MM-dd"));
+        var moved = new List<string>();
+
+        foreach (var file in files)
+        {
+            var source = Path.GetFullPath(file.FullPath);
+            if (!source.StartsWith(sourceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new UserException("Plik do archiwizacji znajduje się poza katalogiem klienta.");
+
+            RejectLink(source);
+            var relative = Path.GetRelativePath(sourceRoot, source);
+            if (relative.StartsWith(SentArchiveDirectoryName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var destination = Path.Combine(archiveRoot, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            destination = UniqueDestination(destination);
+            File.Move(source, destination);
+            File.SetLastWriteTimeUtc(destination, DateTime.UtcNow);
+            moved.Add(destination);
+        }
+
+        RemoveEmptySourceDirectories(sourceRoot);
+        return moved;
+    }
+
+    private static string UniqueDestination(string path)
+    {
+        if (!File.Exists(path)) return path;
+        var directory = Path.GetDirectoryName(path)!;
+        var name = Path.GetFileNameWithoutExtension(path);
+        var extension = Path.GetExtension(path);
+        for (var index = 2; ; index++)
+        {
+            var candidate = Path.Combine(directory, $"{name} ({index}){extension}");
+            if (!File.Exists(candidate)) return candidate;
+        }
+    }
+
+    private static void RemoveEmptySourceDirectories(string sourceRoot)
+    {
+        var archiveRoot = Path.Combine(sourceRoot, SentArchiveDirectoryName);
+        foreach (var directory in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.AllDirectories)
+                     .Where(path => !path.StartsWith(archiveRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                     .OrderByDescending(path => path.Length))
+        {
+            if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                Directory.Delete(directory);
+        }
     }
 
     public void Create(string destination, IReadOnlyList<SourceFile> files, Customer customer,
