@@ -41,7 +41,8 @@ public sealed class SmtpSender(ISecretProtector secrets, Func<SmtpClient>? clien
     {
         using var message = new MimeMessage { Subject = mail.Subject, MessageId = messageId, Date = DateTimeOffset.Now };
         message.From.Add(new MailboxAddress(settings.SenderName, settings.SenderEmail));
-        message.To.Add(MailboxAddress.Parse(mail.Customer.Email));
+        foreach (var address in Validation.ParseEmails(mail.Customer.Email))
+            message.To.Add(MailboxAddress.Parse(address));
         using var attachment = new FileStream(mail.ArchivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         message.Body = new Multipart("mixed")
         {
