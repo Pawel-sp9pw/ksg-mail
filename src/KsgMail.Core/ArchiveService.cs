@@ -75,8 +75,17 @@ public sealed class ArchiveService(ISecretProtector secrets)
             var source = Path.GetFullPath(file.FullPath);
             if (!source.StartsWith(sourceRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 throw new UserException("Plik do archiwizacji znajduje się poza katalogiem klienta.");
-
+            if (!File.Exists(source))
+                throw new UserException($"Plik wysłany nie istnieje już w katalogu źródłowym: {file.RelativePath}");
             RejectLink(source);
+            var info = new FileInfo(source);
+            if (info.Length != file.Length || info.LastWriteTimeUtc != file.LastWriteUtc)
+                throw new UserException($"Plik zmienił się po przygotowaniu wiadomości i nie został przeniesiony do archiwum: {file.RelativePath}");
+        }
+
+        foreach (var file in files)
+        {
+            var source = Path.GetFullPath(file.FullPath);
             var relative = Path.GetRelativePath(sourceRoot, source);
             if (relative.StartsWith(SentArchiveDirectoryName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 continue;
