@@ -10,7 +10,7 @@ namespace KsgMail.Tests;
 public sealed class WindowTests
 {
     [Fact]
-    public void MainWindowLoadsAndRendersAllFourTabs()
+    public void MainWindowLoadsAndRendersAllTabs()
     {
         Exception? error = null;
         var thread = new Thread(() =>
@@ -31,7 +31,7 @@ public sealed class WindowTests
                 var bitmap = new RenderTargetBitmap(1180, 820, 96, 96, PixelFormats.Pbgra32);
                 bitmap.Render(content);
                 var tabs = (System.Windows.Controls.TabControl)window.FindName("Tabs");
-                Assert.Equal(4, tabs.Items.Count);
+                Assert.Equal(5, tabs.Items.Count);
                 var screenshotDirectory = Environment.GetEnvironmentVariable("KSG_MAIL_SCREENSHOTS");
                 foreach (var index in Enumerable.Range(0, tabs.Items.Count))
                 {
