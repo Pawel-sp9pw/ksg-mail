@@ -163,6 +163,66 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void SentFilesMoveToDatedArchiveAndArchiveIsExcludedFromDiscovery()
+    {
+        using var workspace = new TestWorkspace();
+        Directory.CreateDirectory(Path.Combine(workspace.Source, "podkatalog"));
+        File.WriteAllText(Path.Combine(workspace.Source, "root.txt"), "root");
+        File.WriteAllText(Path.Combine(workspace.Source, "podkatalog", "nested.txt"), "nested");
+        var archive = new ArchiveService(workspace.Secrets);
+        var files = archive.Discover(workspace.Source, 100000);
+
+        var moved = archive.ArchiveSent(workspace.Source, files, new DateOnly(2026, 10, 27));
+
+        Assert.Equal(2, moved.Count);
+        Assert.False(File.Exists(Path.Combine(workspace.Source, "root.txt")));
+        Assert.False(File.Exists(Path.Combine(workspace.Source, "podkatalog", "nested.txt")));
+        Assert.True(File.Exists(Path.Combine(workspace.Source, "archiwum", "2026-10-27", "root.txt")));
+        Assert.True(File.Exists(Path.Combine(workspace.Source, "archiwum", "2026-10-27", "podkatalog", "nested.txt")));
+        Assert.Throws<UserException>(() => archive.Discover(workspace.Source, 100000));
+    }
+
+    [Fact]
+    public async Task SuccessfulSendArchivesFilesButFailedSendLeavesThemInSource()
+    {
+        using var successWorkspace = new TestWorkspace();
+        var successPath = Path.Combine(successWorkspace.Source, "success.txt");
+        File.WriteAllText(successPath, "success");
+        var successService = new BatchService(
+            successWorkspace.Repository,
+            new ArchiveService(successWorkspace.Secrets),
+            new RecordingSender(),
+            successWorkspace.Temp);
+        using (var batch = await successService.PrepareAsync(
+                   [successWorkspace.Customer], successWorkspace.Settings, "2026-10", false, null, CancellationToken.None))
+        {
+            await successService.SendAsync(batch, false, null, CancellationToken.None);
+        }
+
+        Assert.False(File.Exists(successPath));
+        var todayArchive = Path.Combine(
+            successWorkspace.Source, "archiwum", DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"), "success.txt");
+        Assert.True(File.Exists(todayArchive));
+
+        using var failedWorkspace = new TestWorkspace();
+        var failedPath = Path.Combine(failedWorkspace.Source, "failed.txt");
+        File.WriteAllText(failedPath, "failed");
+        var failedService = new BatchService(
+            failedWorkspace.Repository,
+            new ArchiveService(failedWorkspace.Secrets),
+            new FailedSender(),
+            failedWorkspace.Temp);
+        using (var batch = await failedService.PrepareAsync(
+                   [failedWorkspace.Customer], failedWorkspace.Settings, "2026-10", false, null, CancellationToken.None))
+        {
+            await failedService.SendAsync(batch, false, null, CancellationToken.None);
+        }
+
+        Assert.True(File.Exists(failedPath));
+        Assert.False(Directory.Exists(Path.Combine(failedWorkspace.Source, "archiwum")));
+    }
+
+    [Fact]
     public async Task ScheduledRunSkipsAlreadySentCustomersForSameMonth()
     {
         using var workspace = new TestWorkspace();
@@ -174,8 +234,19 @@ public sealed class CoreTests
         await service.RunScheduledAsync(new DateTime(2026, 10, 1), CancellationToken.None);
         await service.RunScheduledAsync(new DateTime(2026, 10, 2), CancellationToken.None);
         Assert.Equal(1, sender.Count);
+
         await service.RunScheduledAsync(new DateTime(2026, 11, 1), CancellationToken.None);
+        Assert.Equal(1, sender.Count);
+
+        File.WriteAllText(Path.Combine(workspace.Source, "new-file.txt"), "new document");
+        await service.RunScheduledAsync(new DateTime(2026, 11, 2), CancellationToken.None);
         Assert.Equal(2, sender.Count);
+    }
+
+    private sealed class FailedSender : IMailSender
+    {
+        public Task<SendOutcome> SendAsync(AppSettings settings, PreparedMail mail, string messageId, CancellationToken cancellationToken) =>
+            Task.FromResult(new SendOutcome(DeliveryStatus.Failed, "rejected"));
     }
 
     private sealed class RecordingSender : IMailSender
