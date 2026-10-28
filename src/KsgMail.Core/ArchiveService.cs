@@ -7,7 +7,7 @@ public sealed record PreparedMail(Customer Customer, string Period, string Subje
 {
     public string Name => Customer.Name;
     public string Email => Customer.Email;
-    public string Status => Skipped ? "Pominięty: już wysłano / status niepewny" : Error ?? "Gotowy";
+    public string Status => Skipped ? Error ?? "Pominięty: już wysłano / status niepewny" : Error ?? "Gotowy";
     public string ZipSize => ArchiveBytes == 0 ? "—" : $"{ArchiveBytes / 1048576d:F2} MB";
     public int FileCount => Files.Count;
     public bool Ready => Error == null && !Skipped;
@@ -54,7 +54,6 @@ public sealed class ArchiveService(ISecretProtector secrets)
                 if (files.Count > 10000) throw new UserException("Katalog zawiera ponad 10 000 plików.");
             }
         }
-        if (files.Count == 0) throw new UserException("Katalog jest pusty. Wiadomość nie zostanie wysłana.");
         return files.OrderBy(file => file.RelativePath, StringComparer.Ordinal).ToList();
     }
 
