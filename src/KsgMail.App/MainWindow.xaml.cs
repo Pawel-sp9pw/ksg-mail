@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private DateTime nextScheduleCheck = DateTime.MinValue;
     private UpdateInfo? availableUpdate;
     private bool initialUpdateCheckDone;
+    private List<Customer> allCustomers = [];
 
     public MainWindow(Repository repository, ISecretProtector secrets, SmtpSender sender, BatchService batches)
     {
@@ -47,7 +48,44 @@ public partial class MainWindow : Window
         timer.Start();
     }
 
-    private void LoadCustomers() => CustomersGrid.ItemsSource = repository.Customers();
+    private void LoadCustomers()
+    {
+        allCustomers = repository.Customers().ToList();
+        ApplyCustomerFilter();
+    }
+
+    private void ApplyCustomerFilter()
+    {
+        if (CustomersGrid == null) return;
+        var search = CustomerSearch?.Text?.Trim() ?? "";
+        var state = CustomerStateFilter?.SelectedIndex ?? 0;
+        var filtered = allCustomers.Where(customer =>
+            (search.Length == 0 ||
+             customer.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase) ||
+             customer.Email.Contains(search, StringComparison.CurrentCultureIgnoreCase)) &&
+            (state == 0 || state == 1 && customer.Active || state == 2 && !customer.Active))
+            .ToList();
+
+        CustomersGrid.ItemsSource = filtered;
+        if (CustomerCountText != null)
+            CustomerCountText.Text = $"Widoczne: {filtered.Count} / {allCustomers.Count}";
+    }
+
+    private void CustomerFilterChanged(object senderObject, RoutedEventArgs args) => ApplyCustomerFilter();
+
+    private List<Customer> SelectedCustomers() => CustomersGrid.SelectedItems.Cast<Customer>().ToList();
+
+    private void SelectAllVisibleCustomers(object senderObject, RoutedEventArgs args)
+    {
+        CustomersGrid.SelectAll();
+        StatusText.Text = $"Zaznaczono {CustomersGrid.SelectedItems.Count} widocznych klientów.";
+    }
+
+    private void ClearCustomerSelection(object senderObject, RoutedEventArgs args)
+    {
+        CustomersGrid.UnselectAll();
+        StatusText.Text = "Wyczyszczono zaznaczenie klientów.";
+    }
 
     private void ShowCustomer(Customer customer)
     {
@@ -70,7 +108,8 @@ public partial class MainWindow : Window
 
     private void CustomerSelected(object senderObject, SelectionChangedEventArgs args)
     {
-        if (CustomersGrid.SelectedItem is Customer customer) ShowCustomer(customer);
+        if (CustomersGrid.SelectedItems.Count == 1 && CustomersGrid.SelectedItem is Customer customer)
+            ShowCustomer(customer);
     }
 
     private void BrowseDirectory(object senderObject, RoutedEventArgs args)
@@ -96,20 +135,67 @@ public partial class MainWindow : Window
         repository.SaveCustomer(customer);
         InvalidatePreview();
         LoadCustomers();
-        CustomersGrid.SelectedItem = repository.Customers().First(item => item.Id == customer.Id);
+        CustomersGrid.SelectedItem = allCustomers.FirstOrDefault(item => item.Id == customer.Id);
         ShowCustomer(customer);
         StatusText.Text = "Zapisano klienta.";
     });
 
     private void DeleteCustomer(object senderObject, RoutedEventArgs args) => Guard(() =>
     {
-        if (CustomersGrid.SelectedItem is not Customer customer) throw new UserException("Wybierz klienta.");
-        if (MessageBox.Show(this, $"Usunąć klienta {customer.Name}? Historia wysyłek pozostanie.", "Usuń klienta",
+        var selected = SelectedCustomers();
+        if (selected.Count == 0) throw new UserException("Zaznacz co najmniej jednego klienta.");
+        var message = selected.Count == 1
+            ? $"Usunąć klienta {selected[0].Name}? Historia wysyłek pozostanie."
+            : $"Usunąć {selected.Count} zaznaczonych klientów? Historia wysyłek pozostanie.";
+        if (MessageBox.Show(this, message, "Usuń klientów",
             MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        repository.DeleteCustomer(customer.Id);
+
+        foreach (var customer in selected) repository.DeleteCustomer(customer.Id);
         InvalidatePreview();
         LoadCustomers();
         ShowCustomer(new Customer());
+        StatusText.Text = $"Usunięto {selected.Count} klientów.";
+    });
+
+    private void ActivateSelectedCustomers(object senderObject, RoutedEventArgs args) => Guard(() =>
+    {
+        var selected = SelectedCustomers();
+        if (selected.Count == 0) throw new UserException("Zaznacz co najmniej jednego klienta.");
+
+        int activated = 0, skipped = 0;
+        foreach (var customer in selected)
+        {
+            var active = customer with { Active = true };
+            try
+            {
+                Validation.Customer(active);
+                repository.SaveCustomer(active);
+                activated++;
+            }
+            catch (UserException)
+            {
+                skipped++;
+            }
+        }
+
+        InvalidatePreview();
+        LoadCustomers();
+        StatusText.Text = skipped == 0
+            ? $"Aktywowano {activated} klientów."
+            : $"Aktywowano {activated} klientów. Pominięto {skipped} z niepełną konfiguracją.";
+    });
+
+    private void DeactivateSelectedCustomers(object senderObject, RoutedEventArgs args) => Guard(() =>
+    {
+        var selected = SelectedCustomers();
+        if (selected.Count == 0) throw new UserException("Zaznacz co najmniej jednego klienta.");
+
+        foreach (var customer in selected)
+            repository.SaveCustomer(customer with { Active = false });
+
+        InvalidatePreview();
+        LoadCustomers();
+        StatusText.Text = $"Dezaktywowano {selected.Count} klientów.";
     });
 
     private void LoadSettings()
