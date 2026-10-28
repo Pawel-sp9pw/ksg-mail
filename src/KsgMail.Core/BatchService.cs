@@ -35,6 +35,12 @@ public sealed class BatchService(Repository repository, ArchiveService archives,
                         sourcePath.StartsWith(tempPath, StringComparison.OrdinalIgnoreCase))
                         throw new UserException("Katalog dokumentów nie może obejmować katalogu roboczego KSG Mail.");
                     var files = await Task.Run(() => archives.Discover(customer.SourceDirectory, settings.MaxSourceMb * 1048576L), cancellationToken);
+                    if (files.Count == 0)
+                    {
+                        batch.Items.Add(new(customer, period, subject, body, "", [], 0,
+                            "Pominięty: katalog nie zawiera plików do wysłania.", true));
+                        continue;
+                    }
                     await Task.Run(() => archives.Create(path, files, customer, settings.MaxAttachmentMb * 1048576L, cancellationToken), cancellationToken);
                     batch.Items.Add(new(customer, period, subject, body, path, files, new FileInfo(path).Length, null, false));
                 }
