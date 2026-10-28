@@ -5,10 +5,10 @@ MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, ZIP AES-256 (SharpZipLib), Windows D
 
 ## Instalacja
 
-Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.3.0-win-x64.exe`
+Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.3.1-win-x64.exe`
 z [Releases](https://github.com/Pawel-sp9pw/ksg-mail/releases), uruchom instalator i otwórz KSG Mail.
 Instalacja dla bieżącego użytkownika, bez administratora. Własny runtime .NET jest dołączony.
-Wariant przenośny: rozpakuj `KsgMail-0.3.0-win-x64.zip`, uruchom `KsgMail.exe`.
+Wariant przenośny: rozpakuj `KsgMail-0.3.1-win-x64.zip`, uruchom `KsgMail.exe`.
 Nie przenoś katalogu programu po włączeniu harmonogramu; po przeniesieniu zapisz konfigurację ponownie.
 Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-win-x64.
 
@@ -36,8 +36,8 @@ w zakładce Klienci. Podgląd już tworzy zaszyfrowane archiwa: pokazuje odbiorc
 nazwy plików, rzeczywisty rozmiar ZIP i błędy. Późniejsze zmiany plików źródłowych nie zmieniają podglądu.
 Przycisk **Wyślij przygotowane wiadomości** wymaga potwierdzenia liczby odbiorców.
 
-Błędni klienci nie blokują poprawnych: brak katalogu, pusty katalog, brak dostępu, zmienione pliki,
-za duży ZIP lub źródła są zgłaszane osobno. Klienci nieaktywni nie są wysyłani.
+Błędni klienci nie blokują poprawnych: brak katalogu, brak dostępu, zmienione pliki,
+za duży ZIP lub źródła są zgłaszane osobno. Pusty katalog jest traktowany jako **Pominięty**, a nie błąd. Klienci nieaktywni nie są wysyłani.
 ZIP obejmuje podkatalogi i zachowuje względne ścieżki. Limit: 10 000 plików. Po potwierdzonym sukcesie SMTP dokładnie wysłane pliki są przenoszone do `archiwum\RRRR-MM-DD\` w katalogu klienta; struktura podkatalogów jest zachowana. Katalog `archiwum` jest zawsze pomijany przy kolejnych wysyłkach.
 Dowiązania/junctions i pliki z atrybutem reparse point są odrzucane — używaj lokalnych katalogów.
 Katalog dokumentów nie powinien obejmować katalogu danych aplikacji.
@@ -66,7 +66,7 @@ Przy odinstalowaniu instalator próbuje usunąć zadanie; dane i historia pozost
 
 ## Historia, retry i ochrona przed duplikatami
 
-Historia pokazuje ostatnie 1000 zdarzeń (pełna historia pozostaje w SQLite):
+Historia pokazuje ostatnie 1000 zdarzeń (pełna historia pozostaje w SQLite) i pozwala filtrować wpisy po firmie, również po firmach usuniętych już z konfiguracji:
 - **Wysłano** — SMTP przyjął wiadomość; nie gwarantuje dostarczenia do skrzynki klienta.
 - **Błąd** — przygotowanie lub SMTP nie powiodły się.
 - **Niepewny** — zerwane połączenie podczas wysyłki albo przerwanie procesu.
@@ -111,7 +111,7 @@ Wymagania deweloperskie: Windows x64, .NET SDK 8.0.425 (lub nowszy patch 8.0.4xx
 dotnet restore KsgMail.sln
 dotnet test KsgMail.sln -c Release
 dotnet run --project src/KsgMail.App
-.\build.ps1 -Version 0.3.0
+.\build.ps1 -Version 0.3.1
 ```
 
 Wyniki: `artifacts/publish`, `artifacts/installer`, przenośny ZIP i `SHA256SUMS.txt`.
@@ -126,8 +126,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Pierwszy poprawny build main tworzy Release `v0.3.0` z instalatorem i ZIP-em; istniejącej
-wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.3.0`).
+Pierwszy poprawny build main tworzy Release `v0.3.1` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.3.1`).
 
 ## Struktura
 
