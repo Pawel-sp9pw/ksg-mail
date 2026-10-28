@@ -58,7 +58,7 @@ public sealed class CoreTests
         using var workspace = new TestWorkspace();
         var service = new ArchiveService(workspace.Secrets);
         Assert.Throws<UserException>(() => service.Discover(Path.Combine(workspace.Root, "missing"), 100));
-        Assert.Throws<UserException>(() => service.Discover(workspace.Source, 100));
+        Assert.Empty(service.Discover(workspace.Source, 100));
         var path = Path.Combine(workspace.Source, "file.bin");
         File.WriteAllBytes(path, RandomNumberGenerator.GetBytes(4096));
         Assert.Throws<UserException>(() => service.Discover(workspace.Source, 100));
@@ -179,7 +179,34 @@ public sealed class CoreTests
         Assert.False(File.Exists(Path.Combine(workspace.Source, "podkatalog", "nested.txt")));
         Assert.True(File.Exists(Path.Combine(workspace.Source, "archiwum", "2026-10-27", "root.txt")));
         Assert.True(File.Exists(Path.Combine(workspace.Source, "archiwum", "2026-10-27", "podkatalog", "nested.txt")));
-        Assert.Throws<UserException>(() => archive.Discover(workspace.Source, 100000));
+        Assert.Empty(archive.Discover(workspace.Source, 100000));
+    }
+
+    [Fact]
+    public async Task EmptySourceFolderIsSkippedInsteadOfFailed()
+    {
+        using var workspace = new TestWorkspace();
+        var sender = new RecordingSender();
+        var service = new BatchService(
+            workspace.Repository,
+            new ArchiveService(workspace.Secrets),
+            sender,
+            workspace.Temp);
+
+        using var batch = await service.PrepareAsync(
+            [workspace.Customer], workspace.Settings, "2026-10", false, null, CancellationToken.None);
+
+        var mail = Assert.Single(batch.Items);
+        Assert.True(mail.Skipped);
+        Assert.False(mail.Ready);
+        Assert.Contains("katalog nie zawiera plików", mail.Status, StringComparison.CurrentCultureIgnoreCase);
+
+        await service.SendAsync(batch, false, null, CancellationToken.None);
+
+        Assert.Equal(0, sender.Count);
+        var log = Assert.Single(workspace.Repository.Logs());
+        Assert.Equal(DeliveryStatus.Skipped, log.Status);
+        Assert.Contains("katalog nie zawiera plików", log.Detail, StringComparison.CurrentCultureIgnoreCase);
     }
 
     [Fact]
