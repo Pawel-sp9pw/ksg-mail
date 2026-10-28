@@ -15,8 +15,30 @@
     <Grid Margin="14">
      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="420"/></Grid.ColumnDefinitions>
      <DockPanel Margin="0,0,18,0">
-      <WrapPanel DockPanel.Dock="Top"><Button Content="Nowy klient" Click="NewCustomer"/><Button Content="Usuń wybranego" Click="DeleteCustomer"/></WrapPanel>
-      <DataGrid x:Name="CustomersGrid" SelectionMode="Single" SelectionChanged="CustomerSelected">
+      <StackPanel DockPanel.Dock="Top">
+       <WrapPanel>
+        <Button Content="Nowy klient" Click="NewCustomer"/>
+       </WrapPanel>
+       <WrapPanel Margin="0,8,0,4">
+        <TextBlock Text="Szukaj:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+        <TextBox x:Name="CustomerSearch" Width="220" TextChanged="CustomerFilterChanged" Margin="0,0,12,0"/>
+        <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+        <ComboBox x:Name="CustomerStateFilter" Width="125" SelectedIndex="0" SelectionChanged="CustomerFilterChanged">
+         <ComboBoxItem Content="Wszystkie"/>
+         <ComboBoxItem Content="Aktywne"/>
+         <ComboBoxItem Content="Nieaktywne"/>
+        </ComboBox>
+        <TextBlock x:Name="CustomerCountText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#526477"/>
+       </WrapPanel>
+       <WrapPanel Margin="0,0,0,8">
+        <Button Content="Zaznacz wszystkie widoczne" Click="SelectAllVisibleCustomers"/>
+        <Button Content="Wyczyść zaznaczenie" Click="ClearCustomerSelection"/>
+        <Button Content="Aktywuj zaznaczone" Click="ActivateSelectedCustomers"/>
+        <Button Content="Dezaktywuj zaznaczone" Click="DeactivateSelectedCustomers"/>
+        <Button Content="Usuń zaznaczone" Click="DeleteCustomer"/>
+       </WrapPanel>
+      </StackPanel>
+      <DataGrid x:Name="CustomersGrid" SelectionMode="Extended" SelectionUnit="FullRow" SelectionChanged="CustomerSelected">
        <DataGrid.Columns>
         <DataGridTextColumn Header="Klient" Binding="{Binding Name}" Width="*" MinWidth="160"/>
         <DataGridTextColumn Header="E-mail" Binding="{Binding Email}" Width="*" MinWidth="210"/>
