@@ -5,10 +5,10 @@ MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, ZIP AES-256 (SharpZipLib), Windows D
 
 ## Instalacja
 
-Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.2.1-win-x64.exe`
+Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.3.0-win-x64.exe`
 z [Releases](https://github.com/Pawel-sp9pw/ksg-mail/releases), uruchom instalator i otwórz KSG Mail.
 Instalacja dla bieżącego użytkownika, bez administratora. Własny runtime .NET jest dołączony.
-Wariant przenośny: rozpakuj `KsgMail-0.2.1-win-x64.zip`, uruchom `KsgMail.exe`.
+Wariant przenośny: rozpakuj `KsgMail-0.3.0-win-x64.zip`, uruchom `KsgMail.exe`.
 Nie przenoś katalogu programu po włączeniu harmonogramu; po przeniesieniu zapisz konfigurację ponownie.
 Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-win-x64.
 
@@ -24,6 +24,7 @@ Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-wi
 4. Zakładka **Klienci** → **Nowy klient**: nazwa, jeden lub kilka adresów e-mail, temat, treść, katalog, hasło ZIP,
    aktywny/nieaktywny → **Zapisz klienta**. Adresy można rozdzielać średnikiem lub przecinkiem; duplikaty są pomijane. Każdy klient ma własną treść i własne hasło.
    Przy edycji puste pole hasła zachowuje poprzednie hasło; wpisanie nowego je zmienia.
+   Lista klientów obsługuje filtrowanie po nazwie/e-mailu i statusie aktywny/nieaktywny, wielokrotny wybór oraz operacje masowe: aktywację, dezaktywację i usuwanie.
 5. W temacie i treści można użyć `{klient}` oraz `{miesiac}`, np. `Dokumenty za {miesiac}`.
    `{miesiac}` oznacza wybrany okres `RRRR-MM` (domyślnie bieżący miesiąc).
    Dokumenty nie są filtrowane po dacie — do archiwum trafiają wszystkie pliki z wybranego katalogu.
@@ -110,7 +111,7 @@ Wymagania deweloperskie: Windows x64, .NET SDK 8.0.425 (lub nowszy patch 8.0.4xx
 dotnet restore KsgMail.sln
 dotnet test KsgMail.sln -c Release
 dotnet run --project src/KsgMail.App
-.\build.ps1 -Version 0.2.1
+.\build.ps1 -Version 0.3.0
 ```
 
 Wyniki: `artifacts/publish`, `artifacts/installer`, przenośny ZIP i `SHA256SUMS.txt`.
@@ -125,8 +126,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Pierwszy poprawny build main tworzy Release `v0.2.1` z instalatorem i ZIP-em; istniejącej
-wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.2.1`).
+Pierwszy poprawny build main tworzy Release `v0.3.0` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.3.0`).
 
 ## Struktura
 
