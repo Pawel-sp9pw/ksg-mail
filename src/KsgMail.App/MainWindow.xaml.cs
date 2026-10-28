@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private UpdateInfo? availableUpdate;
     private bool initialUpdateCheckDone;
     private List<Customer> allCustomers = [];
+    private bool loadingLogFilter;
 
     public MainWindow(Repository repository, ISecretProtector secrets, SmtpSender sender, BatchService batches)
     {
@@ -320,16 +321,50 @@ public partial class MainWindow : Window
         SendButton.IsEnabled = false;
     }
 
-    private void LoadLogs() => LogsGrid.ItemsSource = repository.Logs().Select(log => new
+    private void LoadLogs()
     {
-        LocalTime = log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
-        log.CustomerName, log.Period, log.Detail,
-        Status = log.Status switch
+        var logs = repository.Logs();
+        var selectedCompany = LogCustomerFilter?.SelectedItem as string ?? "Wszystkie firmy";
+        var companies = logs.Select(log => log.CustomerName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        if (LogCustomerFilter != null)
         {
-            DeliveryStatus.Success => "Wysłano", DeliveryStatus.Failed => "Błąd",
-            DeliveryStatus.Uncertain => "Niepewny", DeliveryStatus.Pending => "W toku", _ => "Pominięty"
+            loadingLogFilter = true;
+            LogCustomerFilter.ItemsSource = new[] { "Wszystkie firmy" }.Concat(companies).ToList();
+            LogCustomerFilter.SelectedItem = companies.Contains(selectedCompany, StringComparer.CurrentCultureIgnoreCase)
+                ? companies.First(name => name.Equals(selectedCompany, StringComparison.CurrentCultureIgnoreCase))
+                : "Wszystkie firmy";
+            loadingLogFilter = false;
+            selectedCompany = LogCustomerFilter.SelectedItem as string ?? "Wszystkie firmy";
         }
-    }).ToList();
+
+        var filtered = selectedCompany == "Wszystkie firmy"
+            ? logs
+            : logs.Where(log => log.CustomerName.Equals(selectedCompany, StringComparison.CurrentCultureIgnoreCase)).ToList();
+
+        LogsGrid.ItemsSource = filtered.Select(log => new
+        {
+            LocalTime = log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
+            log.CustomerName, log.Period, log.Detail,
+            Status = log.Status switch
+            {
+                DeliveryStatus.Success => "Wysłano", DeliveryStatus.Failed => "Błąd",
+                DeliveryStatus.Uncertain => "Niepewny", DeliveryStatus.Pending => "W toku", _ => "Pominięty"
+            }
+        }).ToList();
+
+        if (LogCountText != null)
+            LogCountText.Text = $"Widoczne: {filtered.Count} / {logs.Count}";
+    }
+
+    private void LogCustomerFilterChanged(object senderObject, SelectionChangedEventArgs args)
+    {
+        if (!loadingLogFilter) LoadLogs();
+    }
 
     private async void WindowContentRendered(object? senderObject, EventArgs args)
     {
