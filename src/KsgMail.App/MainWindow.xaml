@@ -141,7 +141,17 @@
    </TabItem>
    <TabItem Header="  Historia wysyłek  ">
     <DockPanel Margin="14">
-     <WrapPanel DockPanel.Dock="Top"><Button Content="Odśwież" Click="RefreshLogs"/><TextBlock Text="Ostatnie 1000 zdarzeń · czas lokalny" VerticalAlignment="Center"/></WrapPanel>
+     <StackPanel DockPanel.Dock="Top">
+      <WrapPanel>
+       <Button Content="Odśwież" Click="RefreshLogs"/>
+       <TextBlock Text="Ostatnie 1000 zdarzeń · czas lokalny" VerticalAlignment="Center"/>
+      </WrapPanel>
+      <WrapPanel Margin="0,8,0,8">
+       <TextBlock Text="Firma:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+       <ComboBox x:Name="LogCustomerFilter" Width="260" SelectionChanged="LogCustomerFilterChanged"/>
+       <TextBlock x:Name="LogCountText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#526477"/>
+      </WrapPanel>
+     </StackPanel>
      <DataGrid x:Name="LogsGrid">
       <DataGrid.Columns>
        <DataGridTextColumn Header="Data" Binding="{Binding LocalTime}" Width="145"/>
