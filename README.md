@@ -5,10 +5,10 @@ MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, ZIP AES-256 (SharpZipLib), Windows D
 
 ## Instalacja
 
-Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.3.1-win-x64.exe`
+Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.4.0-win-x64.exe`
 z [Releases](https://github.com/Pawel-sp9pw/ksg-mail/releases), uruchom instalator i otwórz KSG Mail.
 Instalacja dla bieżącego użytkownika, bez administratora. Własny runtime .NET jest dołączony.
-Wariant przenośny: rozpakuj `KsgMail-0.3.1-win-x64.zip`, uruchom `KsgMail.exe`.
+Wariant przenośny: rozpakuj `KsgMail-0.4.0-win-x64.zip`, uruchom `KsgMail.exe`.
 Nie przenoś katalogu programu po włączeniu harmonogramu; po przeniesieniu zapisz konfigurację ponownie.
 Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-win-x64.
 
@@ -32,9 +32,13 @@ Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-wi
 ## Ręczna wysyłka i podgląd
 
 Wybierz okres w **Wysyłka i podgląd**, następnie podgląd wszystkich aktywnych lub klienta zaznaczonego
-w zakładce Klienci. Podgląd już tworzy zaszyfrowane archiwa: pokazuje odbiorcę, temat, treść,
-nazwy plików, rzeczywisty rozmiar ZIP i błędy. Późniejsze zmiany plików źródłowych nie zmieniają podglądu.
-Przycisk **Wyślij przygotowane wiadomości** wymaga potwierdzenia liczby odbiorców.
+w zakładce Klienci. Ręczny podgląd zawsze ponownie sprawdza klientów i nie blokuje przygotowania dlatego,
+że ten sam klient był już wysłany wcześniej w tym samym miesiącu. Dzięki temu można wykonywać kilka
+ręcznych wysyłek w ciągu dnia, np. gdy później pojawią się nowe pliki.
+Podgląd już tworzy zaszyfrowane archiwa: pokazuje odbiorcę, temat, treść, nazwy plików, rzeczywisty rozmiar ZIP i błędy.
+W podglądzie można filtrować po nazwie/e-mailu oraz statusie: wszystkie, do wysłania, błędy i pominięte.
+Filtry zmieniają tylko widok; przycisk **Wyślij przygotowane wiadomości** nadal wysyła wszystkie pozycje gotowe do wysłania
+z przygotowanej partii i wymaga potwierdzenia liczby odbiorców.
 
 Błędni klienci nie blokują poprawnych: brak katalogu, brak dostępu, zmienione pliki,
 za duży ZIP lub źródła są zgłaszane osobno. Pusty katalog jest traktowany jako **Pominięty**, a nie błąd. Klienci nieaktywni nie są wysyłani.
@@ -80,8 +84,9 @@ Po zerwaniu połączenia podczas wysyłki nie ma automatycznej próby, ponieważ
 Przerwane rezerwacje po restarcie otrzymują status Niepewny. Sukces i status Niepewny blokują
 kolejną wysyłkę klienta w tym samym okresie.
 
-Aby świadomie ponowić, zaznacz opcję **Zezwól na ponowną wysyłkę** PRZED przygotowaniem podglądu
-i zatwierdź ostrzeżenie. Rezerwacji aktualnie W toku nie można wymusić.
+Wysyłka ręczna zawsze działa w trybie świadomego ponowienia dla wybranego okresu. Oznacza to, że wcześniejszy
+status **Wysłano** w tym samym miesiącu nie blokuje ponownego podglądu ani kolejnej ręcznej wysyłki nowych plików.
+Rezerwacji aktualnie W toku nie można wymusić.
 Anulowanie zatrzymuje kolejne wiadomości; bieżąca wysyłka może zakończyć się jako Niepewny.
 Aplikacja blokuje równoległe instancje dla tego samego konta plikiem blokady.
 
@@ -111,7 +116,7 @@ Wymagania deweloperskie: Windows x64, .NET SDK 8.0.425 (lub nowszy patch 8.0.4xx
 dotnet restore KsgMail.sln
 dotnet test KsgMail.sln -c Release
 dotnet run --project src/KsgMail.App
-.\build.ps1 -Version 0.3.1
+.\build.ps1 -Version 0.4.0
 ```
 
 Wyniki: `artifacts/publish`, `artifacts/installer`, przenośny ZIP i `SHA256SUMS.txt`.
@@ -126,8 +131,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Pierwszy poprawny build main tworzy Release `v0.3.1` z instalatorem i ZIP-em; istniejącej
-wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.3.1`).
+Pierwszy poprawny build main tworzy Release `v0.4.0` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.4.0`).
 
 ## Struktura
 
