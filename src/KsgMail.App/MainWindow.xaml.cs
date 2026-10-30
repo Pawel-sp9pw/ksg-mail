@@ -275,14 +275,43 @@ public partial class MainWindow : Window
     {
         if (!customers.Any(customer => customer.Active)) throw new UserException("Brak aktywnych klientów.");
         InvalidatePreview();
-        preparedResend = AllowResend.IsChecked == true;
-        prepared = await batches.PrepareAsync(customers, repository.Settings(), Period.Text.Trim(), preparedResend,
+        preparedResend = true;
+        prepared = await batches.PrepareAsync(customers, repository.Settings(), Period.Text.Trim(), true,
             new Progress<string>(text => StatusText.Text = text), cancellationToken);
-        PreviewGrid.ItemsSource = prepared.Items;
+        ApplyPreviewFilter();
         SendButton.IsEnabled = prepared.Items.Any(mail => mail.Ready);
-        StatusText.Text = $"Podgląd gotowy: {prepared.Items.Count(mail => mail.Ready)} do wysłania, " +
-            $"{prepared.Items.Count(mail => mail.Error != null)} błędów, {prepared.Items.Count(mail => mail.Skipped)} pominiętych.";
+        StatusText.Text = $"Podgląd ręczny gotowy: {prepared.Items.Count(mail => mail.Ready)} do wysłania, " +
+            $"{prepared.Items.Count(mail => mail.Error != null && !mail.Skipped)} błędów, {prepared.Items.Count(mail => mail.Skipped)} pominiętych.";
     });
+
+    private void PreviewFilterChanged(object senderObject, RoutedEventArgs args) => ApplyPreviewFilter();
+
+    private void ApplyPreviewFilter()
+    {
+        if (PreviewGrid == null) return;
+        if (prepared == null)
+        {
+            PreviewGrid.ItemsSource = null;
+            if (PreviewCountText != null) PreviewCountText.Text = "Widoczne: 0 / 0";
+            return;
+        }
+
+        var search = PreviewSearch?.Text?.Trim() ?? "";
+        var status = PreviewStatusFilter?.SelectedIndex ?? 0;
+        var filtered = prepared.Items.Where(mail =>
+            (search.Length == 0 ||
+             mail.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase) ||
+             mail.Email.Contains(search, StringComparison.CurrentCultureIgnoreCase)) &&
+            (status == 0 ||
+             status == 1 && mail.Ready ||
+             status == 2 && mail.Error != null && !mail.Skipped ||
+             status == 3 && mail.Skipped))
+            .ToList();
+
+        PreviewGrid.ItemsSource = filtered;
+        if (PreviewCountText != null)
+            PreviewCountText.Text = $"Widoczne: {filtered.Count} / {prepared.Items.Count}";
+    }
 
     private void PreviewSelectedMail(object senderObject, SelectionChangedEventArgs args)
     {
@@ -296,7 +325,7 @@ public partial class MainWindow : Window
     {
         if (prepared == null) return;
         var count = prepared.Items.Count(mail => mail.Ready);
-        var warning = preparedResend ? "\nUWAGA: zezwolono na powtórną wysyłkę; możliwe duplikaty." : "";
+        var warning = "\nUWAGA: wysyłka ręczna może ponowić wysyłkę w tym samym okresie; możliwe duplikaty.";
         if (MessageBox.Show(this, $"Wysłać {count} wiadomości z przygotowanego podglądu?{warning}",
             "Potwierdź wysyłkę", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         await RunAsync(async cancellationToken =>
@@ -315,6 +344,7 @@ public partial class MainWindow : Window
         prepared?.Dispose();
         prepared = null;
         PreviewGrid.ItemsSource = null;
+        if (PreviewCountText != null) PreviewCountText.Text = "Widoczne: 0 / 0";
         PreviewSubject.Text = "";
         PreviewBody.Text = "";
         PreviewFiles.ItemsSource = null;
