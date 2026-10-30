@@ -250,6 +250,38 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task ManualResendCanSendAgainInSameMonthWhenNewFilesAppear()
+    {
+        using var workspace = new TestWorkspace();
+        var sender = new RecordingSender();
+        var service = new BatchService(
+            workspace.Repository,
+            new ArchiveService(workspace.Secrets),
+            sender,
+            workspace.Temp);
+
+        File.WriteAllText(Path.Combine(workspace.Source, "first.txt"), "first");
+        using (var first = await service.PrepareAsync(
+                   [workspace.Customer], workspace.Settings, "2026-10", true, null, CancellationToken.None))
+        {
+            Assert.True(Assert.Single(first.Items).Ready);
+            await service.SendAsync(first, true, null, CancellationToken.None);
+        }
+
+        File.WriteAllText(Path.Combine(workspace.Source, "second.txt"), "second");
+        using (var second = await service.PrepareAsync(
+                   [workspace.Customer], workspace.Settings, "2026-10", true, null, CancellationToken.None))
+        {
+            Assert.True(Assert.Single(second.Items).Ready);
+            await service.SendAsync(second, true, null, CancellationToken.None);
+        }
+
+        Assert.Equal(2, sender.Count);
+        Assert.False(File.Exists(Path.Combine(workspace.Source, "first.txt")));
+        Assert.False(File.Exists(Path.Combine(workspace.Source, "second.txt")));
+    }
+
+    [Fact]
     public async Task ScheduledRunSkipsAlreadySentCustomersForSameMonth()
     {
         using var workspace = new TestWorkspace();
