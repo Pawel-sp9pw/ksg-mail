@@ -103,8 +103,22 @@
        <TextBlock Text="Okres (RRRR-MM)" VerticalAlignment="Center" Margin="0,0,10,0"/><TextBox x:Name="Period" Width="100"/>
        <Button Content="Podgląd wszystkich aktywnych" Click="PreviewAll"/><Button Content="Podgląd wybranego klienta" Click="PreviewSelected"/>
       </WrapPanel>
-      <CheckBox x:Name="AllowResend" Content="Zezwól na ponowną wysyłkę w tym okresie (również status niepewny)" Margin="0,4,0,12"/>
-      <TextBlock Text="Podgląd tworzy dokładne archiwa, które zostaną wysłane. Wybierz wiersz, aby zobaczyć treść i pliki." TextWrapping="Wrap" Foreground="#526477" Margin="0,0,0,10"/>
+      <CheckBox x:Name="AllowResend" IsChecked="True" IsEnabled="False"
+                Content="Wysyłka ręczna zawsze ponownie sprawdza klientów i może wysyłać wielokrotnie w tym samym okresie"
+                Margin="0,4,0,8"/>
+      <WrapPanel Margin="0,0,0,8">
+       <TextBlock Text="Szukaj w podglądzie:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+       <TextBox x:Name="PreviewSearch" Width="230" TextChanged="PreviewFilterChanged" Margin="0,0,14,0"/>
+       <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+       <ComboBox x:Name="PreviewStatusFilter" Width="165" SelectedIndex="0" SelectionChanged="PreviewFilterChanged">
+        <ComboBoxItem Content="Wszystkie"/>
+        <ComboBoxItem Content="Do wysłania"/>
+        <ComboBoxItem Content="Błędy"/>
+        <ComboBoxItem Content="Pominięte"/>
+       </ComboBox>
+       <TextBlock x:Name="PreviewCountText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#526477"/>
+      </WrapPanel>
+      <TextBlock Text="Podgląd tworzy dokładne archiwa, które zostaną wysłane. Filtry zmieniają tylko widok — nie ograniczają przygotowanej partii. Wybierz wiersz, aby zobaczyć treść i pliki." TextWrapping="Wrap" Foreground="#526477" Margin="0,0,0,10"/>
      </StackPanel>
      <WrapPanel DockPanel.Dock="Bottom"><Button x:Name="SendButton" Content="Wyślij przygotowane wiadomości…" Click="SendPrepared" IsEnabled="False"/><Button Content="Wyczyść podgląd" Click="ClearPreview"/></WrapPanel>
      <Grid>
