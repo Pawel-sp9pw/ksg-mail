@@ -24,7 +24,7 @@ jobs:
       - name: Select version
         shell: pwsh
         run: |
-          $version = "0.3.1"
+          $version = "0.4.0"
           if ($env:GITHUB_REF_TYPE -eq "tag") { $version = $env:GITHUB_REF_NAME.TrimStart("v") }
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must use v0.1.0 format." }
           "APP_VERSION=$version" >> $env:GITHUB_ENV
