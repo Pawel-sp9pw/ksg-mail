@@ -3,6 +3,8 @@ using MimeKit;
 
 namespace KsgMail.Core;
 
+public enum AttachmentMode { Pdf, Zip }
+
 public sealed record Customer
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
@@ -12,6 +14,7 @@ public sealed record Customer
     public string Body { get; init; } = "Dzień dobry,\n\nw załączeniu dokumenty za {miesiac}.\n\nPozdrawiamy";
     public string SourceDirectory { get; init; } = "";
     public string ZipPasswordProtected { get; init; } = "";
+    public AttachmentMode AttachmentMode { get; init; } = AttachmentMode.Pdf;
     public bool Active { get; init; } = true;
 }
 
@@ -58,7 +61,8 @@ public static class Validation
         Require(!customer.Subject.Contains('\r') && !customer.Subject.Contains('\n'), "Temat nie może zawierać nowych linii.");
         Require(!string.IsNullOrWhiteSpace(customer.Body), "Podaj treść wiadomości.");
         Require(Path.IsPathFullyQualified(customer.SourceDirectory), "Wybierz bezwzględną ścieżkę katalogu.");
-        Require(!string.IsNullOrEmpty(customer.ZipPasswordProtected), "Ustaw hasło ZIP.");
+        Require(!string.IsNullOrEmpty(customer.ZipPasswordProtected), "Ustaw hasło załącznika.");
+        Require(Enum.IsDefined(customer.AttachmentMode), "Nieprawidłowy tryb załącznika.");
     }
 
     public static void Settings(AppSettings settings)
