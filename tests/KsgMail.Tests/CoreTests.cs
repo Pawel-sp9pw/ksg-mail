@@ -2,8 +2,8 @@ using System.IO;
 using System.Security.Cryptography;
 using ICSharpCode.SharpZipLib.Zip;
 using KsgMail.Core;
-using PdfSharp.Pdf;
-using PdfSharp.Pdf.IO;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
 using Xunit;
 
 namespace KsgMail.Tests;
