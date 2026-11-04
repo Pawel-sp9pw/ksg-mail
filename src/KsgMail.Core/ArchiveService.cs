@@ -1,5 +1,5 @@
 using ICSharpCode.SharpZipLib.Zip;
-using PdfSharp.Pdf.IO;
+using PdfSharpCore.Pdf.IO;
 
 namespace KsgMail.Core;
 
@@ -165,7 +165,7 @@ public sealed class ArchiveService(ISecretProtector secrets)
             using (var document = PdfReader.Open(file.FullPath, PdfDocumentOpenMode.Modify))
             {
                 document.SecuritySettings.UserPassword = password;
-                document.SecurityHandler.SetEncryptionToV4UsingAES();
+                document.SecuritySettings.OwnerPassword = password;
                 document.Save(destination);
             }
 
