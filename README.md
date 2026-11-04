@@ -1,14 +1,14 @@
 # KSG Mail
 
 Desktopowa aplikacja Windows do miesięcznej wysyłki dokumentów klientom przez SMTP.
-MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, ZIP AES-256 (SharpZipLib), Windows DPAPI.
+MVP: .NET 8 + WPF, MailKit/MimeKit, SQLite, szyfrowane PDF lub ZIP, Windows DPAPI.
 
 ## Instalacja
 
-Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.4.0-win-x64.exe`
+Windows 10 (1809+) / Windows 11, x64. Pobierz `KsgMail-Setup-0.5.0-win-x64.exe`
 z [Releases](https://github.com/Pawel-sp9pw/ksg-mail/releases), uruchom instalator i otwórz KSG Mail.
 Instalacja dla bieżącego użytkownika, bez administratora. Własny runtime .NET jest dołączony.
-Wariant przenośny: rozpakuj `KsgMail-0.4.0-win-x64.zip`, uruchom `KsgMail.exe`.
+Wariant przenośny: rozpakuj `KsgMail-0.5.0-win-x64.zip`, uruchom `KsgMail.exe`.
 Nie przenoś katalogu programu po włączeniu harmonogramu; po przeniesieniu zapisz konfigurację ponownie.
 Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-win-x64.
 
@@ -21,8 +21,8 @@ Każdy build main udostępnia też instalator w zakładce Actions → KsgMail-wi
    MIME/Base64 zwiększa rozmiar wiadomości o około 37%; ustaw limit ZIP poniżej limitu serwera.
    Program dodatkowo sprawdza limit SIZE ogłaszany przez SMTP.
 3. **Zapisz konfigurację** i użyj **Test połączenia**. Test sprawdza TLS i logowanie, bez wysyłki.
-4. Zakładka **Klienci** → **Nowy klient**: nazwa, jeden lub kilka adresów e-mail, temat, treść, katalog, hasło ZIP,
-   aktywny/nieaktywny → **Zapisz klienta**. Adresy można rozdzielać średnikiem lub przecinkiem; duplikaty są pomijane. Każdy klient ma własną treść i własne hasło.
+4. Zakładka **Klienci** → **Nowy klient**: nazwa, jeden lub kilka adresów e-mail, temat, treść, katalog, format załącznika **PDF** lub **ZIP**, hasło załącznika,
+   aktywny/nieaktywny → **Zapisz klienta**. Nowi oraz starsi klienci bez zapisanego pola formatu domyślnie używają **PDF**. Adresy można rozdzielać średnikiem lub przecinkiem; duplikaty są pomijane. Każdy klient ma własną treść i własne hasło.
    Przy edycji puste pole hasła zachowuje poprzednie hasło; wpisanie nowego je zmienia.
    Lista klientów obsługuje filtrowanie po nazwie/e-mailu i statusie aktywny/nieaktywny, wielokrotny wybór oraz operacje masowe: aktywację, dezaktywację i usuwanie.
 5. W temacie i treści można użyć `{klient}` oraz `{miesiac}`, np. `Dokumenty za {miesiac}`.
@@ -35,18 +35,18 @@ Wybierz okres w **Wysyłka i podgląd**, następnie podgląd wszystkich aktywnyc
 w zakładce Klienci. Ręczny podgląd zawsze ponownie sprawdza klientów i nie blokuje przygotowania dlatego,
 że ten sam klient był już wysłany wcześniej w tym samym miesiącu. Dzięki temu można wykonywać kilka
 ręcznych wysyłek w ciągu dnia, np. gdy później pojawią się nowe pliki.
-Podgląd już tworzy zaszyfrowane archiwa: pokazuje odbiorcę, temat, treść, nazwy plików, rzeczywisty rozmiar ZIP i błędy.
+Podgląd przygotowuje dokładne załączniki: dla trybu **PDF** tworzy robocze kopie PDF zabezpieczone hasłem wymaganym przy otwarciu, a dla trybu **ZIP** tworzy szyfrowane archiwum. Pokazuje odbiorcę, temat, treść, pliki, łączny rozmiar załączników i błędy.
 W podglądzie można filtrować po nazwie/e-mailu oraz statusie: wszystkie, do wysłania, błędy i pominięte.
 Filtry zmieniają tylko widok; przycisk **Wyślij przygotowane wiadomości** nadal wysyła wszystkie pozycje gotowe do wysłania
 z przygotowanej partii i wymaga potwierdzenia liczby odbiorców.
 
 Błędni klienci nie blokują poprawnych: brak katalogu, brak dostępu, zmienione pliki,
 za duży ZIP lub źródła są zgłaszane osobno. Pusty katalog jest traktowany jako **Pominięty**, a nie błąd. Klienci nieaktywni nie są wysyłani.
-ZIP obejmuje podkatalogi i zachowuje względne ścieżki. Limit: 10 000 plików. Po potwierdzonym sukcesie SMTP dokładnie wysłane pliki są przenoszone do `archiwum\RRRR-MM-DD\` w katalogu klienta; struktura podkatalogów jest zachowana. Katalog `archiwum` jest zawsze pomijany przy kolejnych wysyłkach.
+W trybie ZIP archiwum obejmuje podkatalogi i zachowuje względne ścieżki. W trybie PDF wszystkie pliki przeznaczone do wysyłki muszą być PDF-ami; każdy jest szyfrowany osobno i dołączany jako osobny załącznik. Limit: 10 000 plików. Po potwierdzonym sukcesie SMTP dokładnie wysłane pliki są przenoszone do `archiwum\RRRR-MM-DD\` w katalogu klienta; struktura podkatalogów jest zachowana. Katalog `archiwum` jest zawsze pomijany przy kolejnych wysyłkach.
 Dowiązania/junctions i pliki z atrybutem reparse point są odrzucane — używaj lokalnych katalogów.
 Katalog dokumentów nie powinien obejmować katalogu danych aplikacji.
 
-Archiwa AES-256 można otworzyć np. w 7-Zip lub WinRAR. Wbudowany Eksplorator Windows może
+Archiwa ZIP AES-256 można otworzyć np. w 7-Zip lub WinRAR. Zaszyfrowane PDF-y wymagają hasła już przy otwieraniu dokumentu. Wbudowany Eksplorator Windows może
 nie obsługiwać tego szyfrowania. Hasło przekazuj klientowi osobnym kanałem. Nazwy plików w ZIP
 nie są szyfrowane (ograniczenie formatu ZIP AES), zawartość jest szyfrowana.
 
@@ -100,7 +100,7 @@ Log nie zapisuje haseł, treści dokumentów ani surowych odpowiedzi SMTP.
 Certyfikaty TLS są standardowo weryfikowane; nie ma opcji wyłączenia kontroli certyfikatu.
 Nie jest obsługiwane nieszyfrowane SMTP.
 
-ZIP-y robocze powstają bez tworzenia niezaszyfrowanych kopii plików źródłowych. Po zakończeniu /
+Załączniki robocze powstają bez modyfikowania plików źródłowych. W trybie PDF program tworzy wyłącznie zaszyfrowane kopie robocze, a w trybie ZIP szyfrowane archiwum. Po zakończeniu /
 wyczyszczeniu podglądu są usuwane. Oryginalne dokumenty po udanym SMTP są przenoszone do `archiwum\RRRR-MM-DD\`; przy błędzie lub statusie Niepewny pozostają w katalogu źródłowym. Po awarii pozostałości są usuwane przy następnym starcie.
 Zaszyfrowany ZIP nadal wymaga ochrony katalogu i dobrego hasła.
 Wykonuj kopię całego katalogu danych po zamknięciu aplikacji. Przy migracji na inne konto / komputer
@@ -116,7 +116,7 @@ Wymagania deweloperskie: Windows x64, .NET SDK 8.0.425 (lub nowszy patch 8.0.4xx
 dotnet restore KsgMail.sln
 dotnet test KsgMail.sln -c Release
 dotnet run --project src/KsgMail.App
-.\build.ps1 -Version 0.4.0
+.\build.ps1 -Version 0.5.0
 ```
 
 Wyniki: `artifacts/publish`, `artifacts/installer`, przenośny ZIP i `SHA256SUMS.txt`.
@@ -131,8 +131,8 @@ brak retry 5xx, status Niepewny po zerwaniu połączenia oraz odrzucenie niezauf
 Nie wysyłają wiadomości do rzeczywistych odbiorców.
 
 GitHub Actions: każdy push main / PR buduje, testuje i tworzy instalator.
-Pierwszy poprawny build main tworzy Release `v0.4.0` z instalatorem i ZIP-em; istniejącej
-wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.4.0`).
+Pierwszy poprawny build main tworzy Release `v0.5.0` z instalatorem i ZIP-em; istniejącej
+wersji nie nadpisuje. Kolejne wersje wydawaj tagiem `vX.Y.Z` (np. `v0.5.0`).
 
 ## Struktura
 
