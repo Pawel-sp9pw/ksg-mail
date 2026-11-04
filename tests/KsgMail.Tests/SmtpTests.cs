@@ -9,8 +9,8 @@ using ICSharpCode.SharpZipLib.Zip;
 using KsgMail.Core;
 using MailKit.Net.Smtp;
 using MimeKit;
-using PdfSharp.Pdf;
-using PdfSharp.Pdf.IO;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Pdf.IO;
 using Xunit;
 
 namespace KsgMail.Tests;
