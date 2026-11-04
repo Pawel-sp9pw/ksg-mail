@@ -1,14 +1,19 @@
 using ICSharpCode.SharpZipLib.Zip;
+using PdfSharp.Pdf.IO;
 
 namespace KsgMail.Core;
+
+public sealed record PreparedAttachment(string Path, string FileName, string MimeType, long Length);
 
 public sealed record PreparedMail(Customer Customer, string Period, string Subject, string Body,
     string ArchivePath, IReadOnlyList<SourceFile> Files, long ArchiveBytes, string? Error, bool Skipped)
 {
+    public IReadOnlyList<PreparedAttachment> Attachments { get; init; } = [];
     public string Name => Customer.Name;
     public string Email => Customer.Email;
     public string Status => Skipped ? Error ?? "Pominięty: już wysłano / status niepewny" : Error ?? "Gotowy";
-    public string ZipSize => ArchiveBytes == 0 ? "—" : $"{ArchiveBytes / 1048576d:F2} MB";
+    public string ZipSize => AttachmentSize;
+    public string AttachmentSize => ArchiveBytes == 0 ? "—" : $"{ArchiveBytes / 1048576d:F2} MB";
     public int FileCount => Files.Count;
     public bool Ready => Error == null && !Skipped;
 }
@@ -124,6 +129,56 @@ public sealed class ArchiveService(ISecretProtector secrets)
             if (!Directory.EnumerateFileSystemEntries(directory).Any())
                 Directory.Delete(directory);
         }
+    }
+
+    public IReadOnlyList<PreparedAttachment> CreateEncryptedPdfs(
+        string destinationDirectory,
+        IReadOnlyList<SourceFile> files,
+        Customer customer,
+        long maxAttachmentBytes,
+        CancellationToken cancellationToken)
+    {
+        var nonPdf = files.Where(file =>
+                !Path.GetExtension(file.RelativePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            .Select(file => file.RelativePath)
+            .ToList();
+        if (nonPdf.Count > 0)
+            throw new UserException(
+                $"Tryb PDF wymaga wyłącznie plików PDF. Nieprawidłowy plik: {nonPdf[0]}");
+
+        Directory.CreateDirectory(destinationDirectory);
+        var password = secrets.Unprotect(customer.ZipPasswordProtected);
+        var result = new List<PreparedAttachment>();
+        long total = 0;
+
+        for (var index = 0; index < files.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var file = files[index];
+            RejectLink(file.FullPath);
+
+            var info = new FileInfo(file.FullPath);
+            if (info.Length != file.Length || info.LastWriteTimeUtc != file.LastWriteUtc)
+                throw new UserException("Pliki zmieniły się podczas przygotowania. Przygotuj podgląd ponownie.");
+
+            var destination = Path.Combine(destinationDirectory, $"{index + 1:D4}.pdf");
+            using (var document = PdfReader.Open(file.FullPath, PdfDocumentOpenMode.Modify))
+            {
+                document.SecuritySettings.UserPassword = password;
+                document.SecurityHandler.SetEncryptionToV4UsingAES();
+                document.Save(destination);
+            }
+
+            var encryptedLength = new FileInfo(destination).Length;
+            total = checked(total + encryptedLength);
+            if (total > maxAttachmentBytes)
+                throw new UserException("Załączniki PDF przekraczają skonfigurowany limit.");
+
+            var attachmentName = file.RelativePath.Replace('/', ' - ').Replace('\\', ' - ');
+            result.Add(new PreparedAttachment(destination, attachmentName, "application/pdf", encryptedLength));
+        }
+
+        return result;
     }
 
     public void Create(string destination, IReadOnlyList<SourceFile> files, Customer customer,
