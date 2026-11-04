@@ -269,6 +269,39 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task PdfModeArchivesOriginalSourceAfterSuccessfulSend()
+    {
+        using var workspace = new TestWorkspace();
+        var source = Path.Combine(workspace.Source, "dokument.pdf");
+        using (var document = new PdfDocument())
+        {
+            document.AddPage();
+            document.Save(source);
+        }
+
+        var customer = workspace.Customer with { AttachmentMode = AttachmentMode.Pdf };
+        var service = new BatchService(
+            workspace.Repository,
+            new ArchiveService(workspace.Secrets),
+            new SuccessOnlySender(),
+            workspace.Temp);
+
+        using var batch = await service.PrepareAsync(
+            [customer], workspace.Settings, "2026-11", true, null, CancellationToken.None);
+        Assert.True(Assert.Single(batch.Items).Ready);
+
+        await service.SendAsync(batch, true, null, CancellationToken.None);
+
+        Assert.False(File.Exists(source));
+        var archived = Path.Combine(
+            workspace.Source, "archiwum", DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd"), "dokument.pdf");
+        Assert.True(File.Exists(archived));
+
+        using var original = PdfReader.Open(archived, PdfDocumentOpenMode.Import);
+        Assert.Single(original.Pages);
+    }
+
+    [Fact]
     public async Task SuccessfulSendArchivesFilesButFailedSendLeavesThemInSource()
     {
         using var successWorkspace = new TestWorkspace();
@@ -359,6 +392,12 @@ public sealed class CoreTests
         File.WriteAllText(Path.Combine(workspace.Source, "new-file.txt"), "new document");
         await service.RunScheduledAsync(new DateTime(2026, 11, 2), CancellationToken.None);
         Assert.Equal(2, sender.Count);
+    }
+
+    private sealed class SuccessOnlySender : IMailSender
+    {
+        public Task<SendOutcome> SendAsync(AppSettings settings, PreparedMail mail, string messageId, CancellationToken cancellationToken) =>
+            Task.FromResult(new SendOutcome(DeliveryStatus.Success, "accepted"));
     }
 
     private sealed class FailedSender : IMailSender
