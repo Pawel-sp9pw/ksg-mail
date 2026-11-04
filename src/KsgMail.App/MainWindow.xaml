@@ -4,7 +4,7 @@
  <DockPanel Margin="22">
   <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
    <StackPanel><TextBlock Text="KSG Mail" FontSize="28" FontWeight="SemiBold" Foreground="#173B69"/>
-    <TextBlock Text="Dokumenty dla klientów · szyfrowany ZIP · miesięczna wysyłka" Foreground="#526477"/></StackPanel>
+    <TextBlock Text="Dokumenty dla klientów · szyfrowany PDF lub ZIP · miesięczna wysyłka" Foreground="#526477"/></StackPanel>
   </Grid>
   <Border DockPanel.Dock="Bottom" Background="#E5EDF6" Padding="12" Margin="0,14,0,0">
    <DockPanel><Button x:Name="CancelButton" DockPanel.Dock="Right" Content="Anuluj operację" Click="CancelOperation" IsEnabled="False"/>
@@ -57,7 +57,12 @@
        <TextBlock Text="Zmienne: {klient} i {miesiac} (np. 2026-10)" Foreground="#526477" Margin="0,0,0,12"/>
        <TextBlock Text="Katalog z dokumentami (także podkatalogi)"/>
        <DockPanel><Button DockPanel.Dock="Right" Content="Wybierz…" Click="BrowseDirectory"/><TextBox x:Name="CustomerDirectory"/></DockPanel>
-       <TextBlock x:Name="ZipPasswordLabel" Text="Hasło ZIP"/>
+       <TextBlock Text="Format załączników"/>
+       <ComboBox x:Name="CustomerAttachmentMode" SelectedIndex="0" Margin="0,0,0,8">
+        <ComboBoxItem Content="PDF — każdy plik szyfrowany hasłem"/>
+        <ComboBoxItem Content="ZIP — wszystkie pliki w szyfrowanym archiwum"/>
+       </ComboBox>
+       <TextBlock x:Name="ZipPasswordLabel" Text="Hasło załącznika"/>
        <PasswordBox x:Name="CustomerPassword"/>
        <CheckBox x:Name="CustomerActive" Content="Klient aktywny" IsChecked="True" Margin="0,6,0,10"/>
        <Button Content="Zapisz klienta" Click="SaveCustomer" HorizontalAlignment="Left"/>
@@ -83,7 +88,7 @@
       </StackPanel>
       <StackPanel Grid.Column="2">
        <TextBlock Text="Limity i harmonogram" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
-       <TextBlock Text="Maksymalny rozmiar ZIP (MB, 1–100)"/><TextBox x:Name="AttachmentLimit"/>
+       <TextBlock Text="Maksymalny łączny rozmiar załączników (MB, 1–100)"/><TextBox x:Name="AttachmentLimit"/>
        <TextBlock Text="Maksymalny rozmiar plików źródłowych (MB, 1–2048)"/><TextBox x:Name="SourceLimit"/>
        <TextBlock Text="Liczba prób SMTP (1–5)"/><TextBox x:Name="RetryCount"/>
        <Separator Margin="0,14"/>
@@ -128,14 +133,14 @@
         <DataGridTextColumn Header="Klient" Binding="{Binding Name}" Width="140"/>
         <DataGridTextColumn Header="E-mail" Binding="{Binding Email}" Width="180"/>
         <DataGridTextColumn Header="Pliki" Binding="{Binding FileCount}" Width="50"/>
-        <DataGridTextColumn Header="ZIP" Binding="{Binding ZipSize}" Width="90"/>
+        <DataGridTextColumn Header="Załączniki" Binding="{Binding AttachmentSize}" Width="95"/>
         <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="300"/>
        </DataGrid.Columns>
       </DataGrid>
       <Grid Grid.Row="1" Margin="0,12,0,0">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <DockPanel><TextBlock x:Name="PreviewSubject" DockPanel.Dock="Top" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBox x:Name="PreviewBody" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/></DockPanel>
-       <DockPanel Grid.Column="2"><TextBlock Text="Pliki w ZIP" DockPanel.Dock="Top" FontWeight="SemiBold"/><ListBox x:Name="PreviewFiles" DisplayMemberPath="RelativePath" Margin="0,5,0,9"/></DockPanel>
+       <DockPanel Grid.Column="2"><TextBlock Text="Pliki źródłowe" DockPanel.Dock="Top" FontWeight="SemiBold"/><ListBox x:Name="PreviewFiles" DisplayMemberPath="RelativePath" Margin="0,5,0,9"/></DockPanel>
       </Grid>
      </Grid>
     </DockPanel>
