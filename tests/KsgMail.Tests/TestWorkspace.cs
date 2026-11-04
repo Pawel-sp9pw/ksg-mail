@@ -19,7 +19,7 @@ public sealed class TestWorkspace : IDisposable
     public Customer Customer => new()
     {
         Name = "Klient testowy", Email = "customer@example.test", SourceDirectory = Source,
-        ZipPasswordProtected = Secrets.Protect("zip-secret")
+        ZipPasswordProtected = Secrets.Protect("zip-secret"), AttachmentMode = AttachmentMode.Zip
     };
 
     public TestWorkspace()
