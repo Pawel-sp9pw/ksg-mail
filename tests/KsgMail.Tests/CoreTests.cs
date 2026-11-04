@@ -2,6 +2,8 @@ using System.IO;
 using System.Security.Cryptography;
 using ICSharpCode.SharpZipLib.Zip;
 using KsgMail.Core;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using Xunit;
 
 namespace KsgMail.Tests;
@@ -29,6 +31,63 @@ public sealed class CoreTests
             Assert.DoesNotContain("smtp-secret", reader.GetString(0));
         }
         Assert.Throws<UserException>(() => workspace.Secrets.Unprotect("invalid-base64"));
+    }
+
+    [Fact]
+    public void CustomerAttachmentModeDefaultsToPdfIncludingLegacyJson()
+    {
+        Assert.Equal(AttachmentMode.Pdf, new Customer().AttachmentMode);
+
+        var legacy = System.Text.Json.JsonSerializer.Deserialize<Customer>(
+            """{"Id":"00000000000000000000000000000001","Name":"Legacy","Email":"legacy@example.test","Subject":"Temat","Body":"Treść","SourceDirectory":"C:\\Docs","ZipPasswordProtected":"x","Active":true}""")!;
+        Assert.Equal(AttachmentMode.Pdf, legacy.AttachmentMode);
+    }
+
+    [Fact]
+    public void PdfModeCreatesPasswordProtectedPdfThatRequiresPasswordToOpen()
+    {
+        using var workspace = new TestWorkspace();
+        var source = Path.Combine(workspace.Source, "dokument.pdf");
+        using (var document = new PdfDocument())
+        {
+            document.AddPage();
+            document.Save(source);
+        }
+
+        var customer = workspace.Customer with { AttachmentMode = AttachmentMode.Pdf };
+        var service = new ArchiveService(workspace.Secrets);
+        var files = service.Discover(workspace.Source, 1000000);
+        var output = Path.Combine(workspace.Root, "prepared-pdf");
+
+        var attachments = service.CreateEncryptedPdfs(
+            output, files, customer, 1000000, CancellationToken.None);
+
+        var attachment = Assert.Single(attachments);
+        Assert.Equal("dokument.pdf", attachment.FileName);
+        Assert.Equal("application/pdf", attachment.MimeType);
+        Assert.ThrowsAny<Exception>(() =>
+        {
+            using var _ = PdfReader.Open(attachment.Path, PdfDocumentOpenMode.Import);
+        });
+
+        using var opened = PdfReader.Open(attachment.Path, "zip-secret", PdfDocumentOpenMode.Import);
+        Assert.Single(opened.Pages);
+        Assert.True(File.Exists(source));
+    }
+
+    [Fact]
+    public void PdfModeRejectsNonPdfFilesInsteadOfSilentlyOmittingThem()
+    {
+        using var workspace = new TestWorkspace();
+        File.WriteAllText(Path.Combine(workspace.Source, "dokument.txt"), "test");
+        var customer = workspace.Customer with { AttachmentMode = AttachmentMode.Pdf };
+        var service = new ArchiveService(workspace.Secrets);
+        var files = service.Discover(workspace.Source, 1000000);
+
+        var exception = Assert.Throws<UserException>(() => service.CreateEncryptedPdfs(
+            Path.Combine(workspace.Root, "prepared-pdf"), files, customer, 1000000, CancellationToken.None));
+
+        Assert.Contains("wyłącznie plików PDF", exception.Message);
     }
 
     [Fact]
