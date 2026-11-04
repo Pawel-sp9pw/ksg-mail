@@ -74,7 +74,7 @@ public static class Validation
         Require(!string.IsNullOrEmpty(settings.PasswordProtected), "Ustaw hasło SMTP.");
         Email(settings.SenderEmail, "Adres nadawcy");
         Require(!settings.SenderName.Contains('\r') && !settings.SenderName.Contains('\n'), "Nazwa nadawcy nie może zawierać nowych linii.");
-        Require(settings.MaxAttachmentMb is >= 1 and <= 100, "Limit ZIP: 1–100 MB.");
+        Require(settings.MaxAttachmentMb is >= 1 and <= 100, "Limit załączników: 1–100 MB.");
         Require(settings.MaxSourceMb is >= 1 and <= 2048, "Limit plików źródłowych: 1–2048 MB.");
         Require(settings.RetryCount is >= 1 and <= 5, "Liczba prób SMTP: 1–5.");
         Require(settings.ScheduleDay is >= 1 and <= 28, "Dzień miesiąca: 1–28.");
