@@ -174,7 +174,7 @@ public sealed class ArchiveService(ISecretProtector secrets)
             if (total > maxAttachmentBytes)
                 throw new UserException("Załączniki PDF przekraczają skonfigurowany limit.");
 
-            var attachmentName = file.RelativePath.Replace('/', ' - ').Replace('\\', ' - ');
+            var attachmentName = file.RelativePath.Replace("/", " - ").Replace("\\", " - ");
             result.Add(new PreparedAttachment(destination, attachmentName, "application/pdf", encryptedLength));
         }
 
