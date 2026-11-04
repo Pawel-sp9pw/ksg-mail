@@ -9,6 +9,8 @@ using ICSharpCode.SharpZipLib.Zip;
 using KsgMail.Core;
 using MailKit.Net.Smtp;
 using MimeKit;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using Xunit;
 
 namespace KsgMail.Tests;
@@ -51,6 +53,61 @@ public sealed class SmtpTests
             Assert.Equal(256, zip[0].AESKeySize);
             using var text = new StreamReader(zip.GetInputStream(zip[0]));
             Assert.Equal("tajny dokument", text.ReadToEnd());
+        }
+    }
+
+    [Fact]
+    public async Task PdfModeSendsEachPdfAsSeparatePasswordProtectedAttachment()
+    {
+        using var workspace = new TestWorkspace();
+        foreach (var name in new[] { "pierwszy.pdf", "drugi.pdf" })
+        {
+            using var document = new PdfDocument();
+            document.AddPage();
+            document.Save(Path.Combine(workspace.Source, name));
+        }
+
+        await using var server = new LocalSmtpServer(ServerBehavior.Accept);
+        var settings = workspace.Settings with
+        {
+            Host = "localhost",
+            Port = server.Port,
+            Security = TransportSecurity.SslOnConnect
+        };
+        var customer = workspace.Customer with { AttachmentMode = AttachmentMode.Pdf };
+        var sender = new SmtpSender(workspace.Secrets, () => new SmtpClient
+        {
+            ServerCertificateValidationCallback = (_, certificate, _, _) =>
+                certificate?.GetCertHashString() == server.Certificate.GetCertHashString()
+        });
+        var service = new BatchService(workspace.Repository, new ArchiveService(workspace.Secrets), sender, workspace.Temp);
+        using var batch = await service.PrepareAsync([customer], settings, "2026-11", true, null, CancellationToken.None);
+
+        var prepared = Assert.Single(batch.Items);
+        Assert.True(prepared.Ready);
+        Assert.Equal(2, prepared.Attachments.Count);
+
+        var outcome = await sender.SendAsync(settings, prepared, "pdf-mode@example.test", CancellationToken.None);
+        Assert.Equal(DeliveryStatus.Success, outcome.Status);
+
+        using var message = MimeMessage.Load(new MemoryStream(Encoding.UTF8.GetBytes(server.Message!)));
+        var attachments = message.Attachments.Cast<MimePart>().ToList();
+        Assert.Equal(2, attachments.Count);
+        Assert.All(attachments, attachment => Assert.Equal("application/pdf", attachment.ContentType.MimeType));
+
+        foreach (var attachment in attachments)
+        {
+            using var bytes = new MemoryStream();
+            attachment.Content!.DecodeTo(bytes);
+            var temp = Path.Combine(workspace.Root, Guid.NewGuid().ToString("N") + ".pdf");
+            File.WriteAllBytes(temp, bytes.ToArray());
+
+            Assert.ThrowsAny<Exception>(() =>
+            {
+                using var _ = PdfReader.Open(temp, PdfDocumentOpenMode.Import);
+            });
+            using var opened = PdfReader.Open(temp, "zip-secret", PdfDocumentOpenMode.Import);
+            Assert.Single(opened.Pages);
         }
     }
 
