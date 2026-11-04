@@ -43,26 +43,41 @@ public sealed class SmtpSender(ISecretProtector secrets, Func<SmtpClient>? clien
         message.From.Add(new MailboxAddress(settings.SenderName, settings.SenderEmail));
         foreach (var address in Validation.ParseEmails(mail.Customer.Email))
             message.To.Add(MailboxAddress.Parse(address));
-        using var attachment = new FileStream(mail.ArchivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        message.Body = new Multipart("mixed")
+        var multipart = new Multipart("mixed")
         {
-            new TextPart("plain") { Text = mail.Body },
-            new MimePart("application", "zip")
-            {
-                Content = new MimeContent(attachment),
-                ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                ContentTransferEncoding = ContentEncoding.Base64,
-                FileName = $"dokumenty-{mail.Period}.zip"
-            }
+            new TextPart("plain") { Text = mail.Body }
         };
-        for (var attempt = 1; attempt <= settings.RetryCount; attempt++)
+        var attachmentStreams = new List<FileStream>();
+        try
         {
-            var sendStarted = false;
-            using var client = CreateClient(60000);
-            try
+            var attachments = mail.Attachments.Count > 0
+                ? mail.Attachments
+                : [new PreparedAttachment(mail.ArchivePath, $"dokumenty-{mail.Period}.zip", "application/zip", mail.ArchiveBytes)];
+
+            foreach (var item in attachments)
             {
-                attachment.Position = 0;
-                await ConnectAsync(client, settings, cancellationToken);
+                var stream = new FileStream(item.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                attachmentStreams.Add(stream);
+                var slash = item.MimeType.IndexOf('/');
+                var mediaType = slash > 0 ? item.MimeType[..slash] : "application";
+                var mediaSubtype = slash > 0 ? item.MimeType[(slash + 1)..] : "octet-stream";
+                multipart.Add(new MimePart(mediaType, mediaSubtype)
+                {
+                    Content = new MimeContent(stream),
+                    ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                    ContentTransferEncoding = ContentEncoding.Base64,
+                    FileName = item.FileName
+                });
+            }
+            message.Body = multipart;
+            for (var attempt = 1; attempt <= settings.RetryCount; attempt++)
+            {
+                var sendStarted = false;
+                using var client = CreateClient(60000);
+                try
+                {
+                    foreach (var stream in attachmentStreams) stream.Position = 0;
+                    await ConnectAsync(client, settings, cancellationToken);
                 using var encoded = new CountingStream();
                 await message.WriteToAsync(encoded, cancellationToken);
                 if (client.MaxSize > 0 && encoded.Length > client.MaxSize)
@@ -88,8 +103,13 @@ public sealed class SmtpSender(ISecretProtector secrets, Func<SmtpClient>? clien
                 try { await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)), cancellationToken); }
                 catch (OperationCanceledException) { return new(DeliveryStatus.Failed, "Anulowano podczas oczekiwania na ponowienie."); }
             }
+            }
+            return new(DeliveryStatus.Failed, "Wyczerpano próby SMTP.");
         }
-        return new(DeliveryStatus.Failed, "Wyczerpano próby SMTP.");
+        finally
+        {
+            foreach (var stream in attachmentStreams) stream.Dispose();
+        }
     }
 
     public static string NewMessageId() => MimeUtils.GenerateMessageId();
