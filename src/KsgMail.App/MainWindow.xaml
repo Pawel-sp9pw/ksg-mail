@@ -42,6 +42,7 @@
        <DataGrid.Columns>
         <DataGridTextColumn Header="Klient" Binding="{Binding Name}" Width="*" MinWidth="160"/>
         <DataGridTextColumn Header="E-mail" Binding="{Binding Email}" Width="*" MinWidth="210"/>
+        <DataGridTextColumn Header="Format" Binding="{Binding AttachmentMode}" Width="65"/>
         <DataGridCheckBoxColumn Header="Aktywny" Binding="{Binding Active}" Width="70"/>
        </DataGrid.Columns>
       </DataGrid>
