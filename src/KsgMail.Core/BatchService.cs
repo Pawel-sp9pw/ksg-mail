@@ -20,7 +20,8 @@ public sealed class BatchService(Repository repository, ArchiveService archives,
                 progress?.Report($"Przygotowanie: {customer.Name}");
                 var subject = Templates.Render(customer.Subject, customer, period);
                 var body = Templates.Render(customer.Body, customer, period);
-                var path = Path.Combine(directory, customer.Id + ".zip");
+                var customerWorkDirectory = Path.Combine(directory, customer.Id);
+                var path = Path.Combine(customerWorkDirectory, "dokumenty.zip");
                 if (!allowResend && repository.IsBlocked(customer.Id, period))
                 {
                     batch.Items.Add(new(customer, period, subject, body, "", [], 0, null, true));
@@ -41,13 +42,38 @@ public sealed class BatchService(Repository repository, ArchiveService archives,
                             "Pominięty: katalog nie zawiera plików do wysłania.", true));
                         continue;
                     }
-                    await Task.Run(() => archives.Create(path, files, customer, settings.MaxAttachmentMb * 1048576L, cancellationToken), cancellationToken);
-                    batch.Items.Add(new(customer, period, subject, body, path, files, new FileInfo(path).Length, null, false));
+                    IReadOnlyList<PreparedAttachment> attachments;
+                    if (customer.AttachmentMode == AttachmentMode.Pdf)
+                    {
+                        attachments = await Task.Run(() => archives.CreateEncryptedPdfs(
+                            customerWorkDirectory, files, customer,
+                            settings.MaxAttachmentMb * 1048576L, cancellationToken), cancellationToken);
+                    }
+                    else
+                    {
+                        Directory.CreateDirectory(customerWorkDirectory);
+                        await Task.Run(() => archives.Create(
+                            path, files, customer,
+                            settings.MaxAttachmentMb * 1048576L, cancellationToken), cancellationToken);
+                        var zipLength = new FileInfo(path).Length;
+                        attachments =
+                        [
+                            new PreparedAttachment(path, $"dokumenty-{period}.zip", "application/zip", zipLength)
+                        ];
+                    }
+
+                    var firstPath = attachments.First().Path;
+                    var totalBytes = attachments.Sum(attachment => attachment.Length);
+                    batch.Items.Add(new(customer, period, subject, body, firstPath, files, totalBytes, null, false)
+                    {
+                        Attachments = attachments
+                    });
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception exception)
                 {
-                    if (File.Exists(path)) File.Delete(path);
+                    if (Directory.Exists(customerWorkDirectory))
+                        Directory.Delete(customerWorkDirectory, true);
                     batch.Items.Add(new(customer, period, subject, body, "", [], 0, ErrorMessages.Describe(exception), false));
                 }
             }
