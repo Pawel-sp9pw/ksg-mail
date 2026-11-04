@@ -96,8 +96,11 @@ public partial class MainWindow : Window
         CustomerSubject.Text = customer.Subject;
         CustomerBody.Text = customer.Body;
         CustomerDirectory.Text = customer.SourceDirectory;
+        CustomerAttachmentMode.SelectedIndex = customer.AttachmentMode == AttachmentMode.Pdf ? 0 : 1;
         CustomerPassword.Clear();
-        ZipPasswordLabel.Text = customer.ZipPasswordProtected.Length == 0 ? "Hasło ZIP" : "Hasło ZIP (zapisane; wpisz, aby zmienić)";
+        ZipPasswordLabel.Text = customer.ZipPasswordProtected.Length == 0
+            ? "Hasło załącznika"
+            : "Hasło załącznika (zapisane; wpisz, aby zmienić)";
         CustomerActive.IsChecked = customer.Active;
     }
 
@@ -125,7 +128,9 @@ public partial class MainWindow : Window
         {
             Name = CustomerName.Text.Trim(), Email = CustomerEmail.Text.Trim(),
             Subject = CustomerSubject.Text.Trim(), Body = CustomerBody.Text,
-            SourceDirectory = CustomerDirectory.Text.Trim(), Active = CustomerActive.IsChecked == true,
+            SourceDirectory = CustomerDirectory.Text.Trim(),
+            AttachmentMode = CustomerAttachmentMode.SelectedIndex == 1 ? AttachmentMode.Zip : AttachmentMode.Pdf,
+            Active = CustomerActive.IsChecked == true,
             ZipPasswordProtected = CustomerPassword.Password.Length == 0 ? editing.ZipPasswordProtected : secrets.Protect(CustomerPassword.Password)
         };
         var dataRoot = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KsgMail"));
@@ -234,7 +239,7 @@ public partial class MainWindow : Window
             Username = SmtpUsername.Text.Trim(),
             PasswordProtected = SmtpPassword.Password.Length == 0 ? settings.PasswordProtected : secrets.Protect(SmtpPassword.Password),
             SenderEmail = SenderEmail.Text.Trim(), SenderName = SenderName.Text.Trim(),
-            MaxAttachmentMb = Number(AttachmentLimit, "Limit ZIP"), MaxSourceMb = Number(SourceLimit, "Limit plików"),
+            MaxAttachmentMb = Number(AttachmentLimit, "Limit załączników"), MaxSourceMb = Number(SourceLimit, "Limit plików"),
             RetryCount = Number(RetryCount, "Liczba prób"), ScheduleEnabled = ScheduleEnabled.IsChecked == true,
             ScheduleDay = Number(ScheduleDay, "Dzień"), ScheduleTime = ScheduleTime.Text.Trim()
         };
